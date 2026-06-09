@@ -58,8 +58,8 @@ public class DataInitializer implements CommandLineRunner {
             assignPermissionToRole(userRole, userRead);
 
             // Create Role Hierarchy: ROLE_ADMIN -> ROLE_MANAGER -> ROLE_USER
-            createHierarchyLinkIfAbsent(adminRole, managerRole);
-            createHierarchyLinkIfAbsent(managerRole, userRole);
+            //createHierarchyLinkIfAbsent(adminRole, managerRole);
+           // createHierarchyLinkIfAbsent(managerRole, userRole);
 
             // Admin user
             User admin = User.builder()

@@ -194,3 +194,4 @@ export const SignupPage = () => {
     </div>
   );
 };
+export default SignupPage;  // Add this at the bottom

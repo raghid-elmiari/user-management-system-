@@ -69,17 +69,33 @@ public class RoleHierarchyService {
         return closure;
     }
 
-    private void resolveClosureRecursive(Role currentRole, Set<Role> closure) {
-        if (closure.contains(currentRole)) {
-            return;
-        }
-        closure.add(currentRole);
-        List<UUID> childIds = hierarchyRepository.findChildRoleIdsByParentRoleId(currentRole.getId());
-        for (UUID childId : childIds) {
-            roleRepository.findById(childId).ifPresent(childRole -> resolveClosureRecursive(childRole, closure));
-        }
+private void resolveClosureRecursive(Role currentRole, Set<Role> closure) {
+    if (closure.contains(currentRole)) {
+        return;
     }
-
+    closure.add(currentRole);
+    
+    try {
+        // Add null check and error handling
+        List<UUID> childIds = hierarchyRepository.findChildRoleIdsByParentRoleId(currentRole.getId());
+        if (childIds != null && !childIds.isEmpty()) {
+            for (UUID childId : childIds) {
+                try {
+                    roleRepository.findById(childId).ifPresent(childRole -> {
+                        if (!closure.contains(childRole)) {
+                            resolveClosureRecursive(childRole, closure);
+                        }
+                    });
+                } catch (Exception e) {
+                    System.err.println("Error processing child role: " + childId);
+                }
+            }
+        }
+    } catch (Exception e) {
+        System.err.println("Error finding child roles for: " + currentRole.getName());
+        // Don't throw - just continue
+    }
+}
     private boolean isReachable(UUID start, UUID target, Set<UUID> visited) {
         if (start.equals(target)) {
             return true;
