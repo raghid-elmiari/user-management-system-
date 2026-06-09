@@ -11,18 +11,16 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 public class RolePermission {
-
     @EmbeddedId
     private RolePermissionId id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @MapsId("roleId")
-    @JoinColumn(name = "role_id")
+    @JoinColumn(name = "role_id", columnDefinition = "BINARY(16)")
     private Role role;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @MapsId("permissionId")
-    @JoinColumn(name = "permission_id")
+    @JoinColumn(name = "permission_id", columnDefinition = "BINARY(16)")
     private Permission permission;
 }
-

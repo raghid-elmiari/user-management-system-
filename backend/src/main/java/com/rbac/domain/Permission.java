@@ -3,7 +3,6 @@ package com.rbac.domain;
 import javax.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
-
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -15,14 +14,13 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 public class Permission {
-
     @Id
     @GeneratedValue(generator = "UUID")
     @org.hibernate.annotations.GenericGenerator(
         name = "UUID",
         strategy = "org.hibernate.id.UUIDGenerator"
     )
-    @Column(name = "id", updatable = false, nullable = false)
+    @Column(name = "id", updatable = false, nullable = false, columnDefinition = "BINARY(16)")
     private UUID id;
 
     @Column(nullable = false, unique = true)
@@ -40,4 +38,3 @@ public class Permission {
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
 }
-

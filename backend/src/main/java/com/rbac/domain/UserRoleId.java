@@ -3,7 +3,6 @@ package com.rbac.domain;
 import javax.persistence.Column;
 import javax.persistence.Embeddable;
 import lombok.*;
-
 import java.io.Serializable;
 import java.util.UUID;
 
@@ -14,11 +13,9 @@ import java.util.UUID;
 @AllArgsConstructor
 @EqualsAndHashCode
 public class UserRoleId implements Serializable {
-
-    @Column(name = "user_id")
+    @Column(name = "user_id", columnDefinition = "BINARY(16)")
     private UUID userId;
 
-    @Column(name = "role_id")
+    @Column(name = "role_id", columnDefinition = "BINARY(16)")
     private UUID roleId;
 }
-
