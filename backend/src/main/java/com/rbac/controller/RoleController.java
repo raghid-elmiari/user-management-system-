@@ -1,6 +1,7 @@
 package com.rbac.controller;
 
 import com.rbac.dto.request.CreateRoleRequest;
+import com.rbac.dto.request.UpdateRolePermissionsRequest;
 import com.rbac.dto.response.RoleResponse;
 import com.rbac.service.RoleService;
 import javax.validation.Valid;
@@ -29,6 +30,15 @@ public class RoleController {
     @PreAuthorize("hasAuthority('PERMISSION_role:write')")
     public ResponseEntity<RoleResponse> createRole(@Valid @RequestBody CreateRoleRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(roleService.createRole(request));
+    }
+
+    @PutMapping("/{roleName}/permissions")
+    @PreAuthorize("hasAuthority('PERMISSION_permission:write')")
+    public ResponseEntity<RoleResponse> updateRolePermissions(
+            @PathVariable String roleName,
+            @Valid @RequestBody UpdateRolePermissionsRequest request
+    ) {
+        return ResponseEntity.ok(roleService.updateRolePermissions(roleName, request));
     }
 }
 

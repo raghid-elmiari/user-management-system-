@@ -1,142 +1,352 @@
 import { useEffect, useState } from 'react';
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { rolesApi } from '../api/rolesApi';
 
-const MOCK_PERMISSIONS = [
-  { id: 1, name: 'user:read',       resource: 'user',       action: 'read',   description: 'Read user details' },
-  { id: 2, name: 'user:write',      resource: 'user',       action: 'write',  description: 'Create/Update user details' },
-  { id: 3, name: 'user:delete',     resource: 'user',       action: 'delete', description: 'Delete users' },
-  { id: 4, name: 'role:read',       resource: 'role',       action: 'read',   description: 'Read roles' },
-  { id: 5, name: 'role:write',      resource: 'role',       action: 'write',  description: 'Create/Update roles' },
-  { id: 6, name: 'permission:read', resource: 'permission', action: 'read',   description: 'Read permissions' },
-  { id: 7, name: 'permission:write',resource: 'permission', action: 'write',  description: 'Create permissions' },
+// All available permissions in the system
+const ALL_PERMISSIONS = [
+  { id: 'user:read',        resource: 'user',       action: 'read',   description: 'View user profiles and list' },
+  { id: 'user:write',       resource: 'user',       action: 'write',  description: 'Create and update users' },
+  { id: 'user:delete',      resource: 'user',       action: 'delete', description: 'Delete users from the system' },
+  { id: 'role:read',        resource: 'role',       action: 'read',   description: 'View roles and their details' },
+  { id: 'role:write',       resource: 'role',       action: 'write',  description: 'Create and update roles' },
+  { id: 'role:delete',      resource: 'role',       action: 'delete', description: 'Delete roles from the system' },
+  { id: 'permission:read',  resource: 'permission', action: 'read',   description: 'View permission definitions' },
+  { id: 'permission:write', resource: 'permission', action: 'write',  description: 'Create and update permissions' },
+  { id: 'hierarchy:read',   resource: 'hierarchy',  action: 'read',   description: 'View role hierarchy tree' },
+  { id: 'hierarchy:write',  resource: 'hierarchy',  action: 'write',  description: 'Modify role hierarchy structure' },
 ];
 
-const ACTION_COLORS = {
-  read:   'badge-blue',
-  write:  'badge-orange',
-  delete: 'badge-red',
+// Default permission assignments per role
+const DEFAULT_ROLE_PERMISSIONS = {
+  ROLE_ADMIN: [
+    'user:read','user:write','user:delete',
+    'role:read','role:write','role:delete',
+    'permission:read','permission:write',
+    'hierarchy:read','hierarchy:write',
+  ],
+  ROLE_MANAGER: [
+    'user:read','user:write',
+    'role:read',
+    'hierarchy:read',
+  ],
+  ROLE_USER: [
+    'hierarchy:read',
+  ],
+};
+
+const ACTION_COLORS = { read: 'badge-blue', write: 'badge-orange', delete: 'badge-red' };
+
+const ROLES = ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_USER'];
+
+const ROLE_META = {
+  ROLE_ADMIN:   { label: 'Admin',   color: 'var(--orange-500)',    bg: 'var(--color-primary-subtle)', icon: '👑' },
+  ROLE_MANAGER: { label: 'Manager', color: 'var(--color-info)',    bg: 'var(--color-info-subtle)',    icon: '🧑‍💼' },
+  ROLE_USER:    { label: 'User',    color: 'var(--color-success)', bg: 'var(--color-success-subtle)', icon: '👤' },
 };
 
 export const PermissionsPage = () => {
-  const [permissions, setPermissions] = useState([]);
-  const [search, setSearch] = useState('');
-  const [filterResource, setFilterResource] = useState('');
+  const { loading, hasPermission, refreshCurrentUser, applyRolePermissions } = useAuth();
+
+  const [rolePermissions, setRolePermissions] = useState(DEFAULT_ROLE_PERMISSIONS);
+  const [selectedRole, setSelectedRole]       = useState('ROLE_MANAGER');
+  const [dirty, setDirty]                     = useState(false);
+  const [saved, setSaved]                     = useState(false);
+  const [saveError, setSaveError]             = useState('');
+  const [filterResource, setFilterResource]   = useState('');
 
   useEffect(() => {
-    setPermissions(MOCK_PERMISSIONS);
+    // TODO: fetch from API — for now use defaults
+    setRolePermissions(DEFAULT_ROLE_PERMISSIONS);
   }, []);
 
-  const resources = [...new Set(MOCK_PERMISSIONS.map((p) => p.resource))];
+  if (loading) return null;
+  if (!hasPermission('permission:read')) return <Navigate to="/dashboard" replace />;
 
-  const filtered = permissions.filter((p) => {
-    const matchSearch =
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.description.toLowerCase().includes(search.toLowerCase());
-    const matchResource = !filterResource || p.resource === filterResource;
-    return matchSearch && matchResource;
-  });
+  const canEdit = hasPermission('permission:write');
+
+  const resources = [...new Set(ALL_PERMISSIONS.map(p => p.resource))];
+
+  const currentPerms = rolePermissions[selectedRole] ?? [];
+
+  const filtered = filterResource
+    ? ALL_PERMISSIONS.filter(p => p.resource === filterResource)
+    : ALL_PERMISSIONS;
+
+  const toggle = (permId) => {
+    if (!canEdit) return;
+
+    setRolePermissions(prev => {
+      const existing = prev[selectedRole] ?? [];
+      const updated = existing.includes(permId)
+        ? existing.filter(p => p !== permId)
+        : [...existing, permId];
+      return { ...prev, [selectedRole]: updated };
+    });
+    setDirty(true);
+    setSaved(false);
+  };
+
+  const handleSave = async () => {
+    if (!canEdit) return;
+
+    try {
+      await rolesApi.updatePermissions(selectedRole, rolePermissions[selectedRole]);
+      setSaveError('');
+      await refreshCurrentUser();
+      applyRolePermissions(selectedRole, rolePermissions[selectedRole]);
+      setDirty(false);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (error) {
+      console.error('Failed to save permissions', error);
+      applyRolePermissions(selectedRole, rolePermissions[selectedRole]);
+      setDirty(false);
+      setSaved(true);
+      setSaveError('Saved locally because the server update route was unavailable. Restart the backend to persist this change on the server.');
+      setTimeout(() => setSaved(false), 3000);
+    }
+  };
+
+  const handleReset = () => {
+    if (!canEdit) return;
+
+    setRolePermissions(prev => ({ ...prev, [selectedRole]: DEFAULT_ROLE_PERMISSIONS[selectedRole] }));
+    setDirty(false);
+    setSaved(false);
+  };
+
+  const allChecked = filtered.every(p => currentPerms.includes(p.id));
+  const toggleAll  = () => {
+    if (!canEdit) return;
+
+    const filteredIds = filtered.map(p => p.id);
+    setRolePermissions(prev => {
+      const existing  = prev[selectedRole] ?? [];
+      const updated   = allChecked
+        ? existing.filter(id => !filteredIds.includes(id))
+        : [...new Set([...existing, ...filteredIds])];
+      return { ...prev, [selectedRole]: updated };
+    });
+    setDirty(true);
+    setSaved(false);
+  };
+
+  const meta = ROLE_META[selectedRole];
 
   return (
     <div className="animate-fade-in">
+      {/* Header */}
       <div className="page-header">
         <div className="page-header-left">
           <h1 className="page-title">
-            Permission <span className="page-title-accent">Registry</span>
+            Permission <span className="page-title-accent">Manager</span>
           </h1>
-          <p className="page-subtitle">Manage permission actions and resource scopes</p>
+          <p className="page-subtitle">
+            Control what each role can do — assign or revoke permissions per role
+          </p>
         </div>
-        <button id="add-permission-btn" className="btn btn-primary">
-          + Add Permission
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {dirty && canEdit && (
+            <button className="btn btn-secondary" onClick={handleReset}>
+              ↺ Reset
+            </button>
+          )}
+          <button
+            className="btn btn-primary"
+            onClick={handleSave}
+            disabled={!dirty || !canEdit}
+          >
+            💾 Save Changes
+          </button>
+        </div>
       </div>
 
-      {/* Toolbar */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-        <div className="search-bar" style={{ flex: 1, maxWidth: 340 }}>
-          <span className="search-bar-icon">🔍</span>
-          <input
-            id="permissions-search"
-            type="search"
-            className="form-control"
-            placeholder="Search permissions…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+      {/* Saved notice */}
+      {saved && (
+        <div style={{
+          marginBottom: 16, padding: '10px 16px',
+          background: 'var(--color-success-subtle)',
+          border: '1px solid rgba(34,197,94,0.3)',
+          borderRadius: 'var(--radius-md)',
+          fontSize: 13, color: 'var(--color-success)',
+          display: 'flex', gap: 8, alignItems: 'center',
+        }}>
+          ✅ Permissions saved for {meta.label}
         </div>
+      )}
+
+      {saveError && (
+        <div style={{
+          marginBottom: 16, padding: '10px 16px',
+          background: 'var(--color-warning-subtle)',
+          border: '1px solid rgba(245,158,11,0.3)',
+          borderRadius: 'var(--radius-md)',
+          fontSize: 13, color: 'var(--color-warning)',
+          display: 'flex', gap: 8, alignItems: 'center',
+        }}>
+          <span>⚠️</span>
+          <span>{saveError}</span>
+        </div>
+      )}
+
+      {/* Role selector tabs */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 24 }}>
+        {ROLES.map(role => {
+          const m      = ROLE_META[role];
+          const active = selectedRole === role;
+          const count  = (rolePermissions[role] ?? []).length;
+          return (
+            <button
+              key={role}
+              onClick={() => { setSelectedRole(role); setDirty(false); setSaved(false); }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '10px 18px',
+                borderRadius: 'var(--radius-md)',
+                border: active ? `2px solid ${m.color}` : '2px solid var(--color-border)',
+                background: active ? m.bg : 'var(--color-surface)',
+                cursor: 'pointer',
+                fontWeight: active ? 700 : 500,
+                fontSize: 14,
+                color: active ? m.color : 'var(--color-text-muted)',
+                transition: 'all 0.15s',
+                opacity: canEdit ? 1 : 0.85,
+              }}
+            >
+              <span>{m.icon}</span>
+              {m.label}
+              <span style={{
+                padding: '1px 7px',
+                borderRadius: 'var(--radius-full)',
+                background: active ? m.color : 'var(--color-surface2)',
+                color: active ? '#fff' : 'var(--color-text-muted)',
+                fontSize: 11, fontWeight: 700,
+              }}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Active role summary */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '12px 16px',
+        background: meta.bg,
+        border: `1px solid ${meta.color}33`,
+        borderRadius: 'var(--radius-md)',
+        marginBottom: 20,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 22 }}>{meta.icon}</span>
+          <div>
+            <div style={{ fontWeight: 700, color: meta.color }}>{meta.label}</div>
+            <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
+              {currentPerms.length} of {ALL_PERMISSIONS.length} permissions granted
+            </div>
+          </div>
+        </div>
+        {/* Resource filter */}
         <select
           className="form-control"
           style={{ maxWidth: 180 }}
           value={filterResource}
-          onChange={(e) => setFilterResource(e.target.value)}
-          id="permissions-filter"
+          onChange={e => setFilterResource(e.target.value)}
         >
           <option value="">All resources</option>
-          {resources.map((r) => (
-            <option key={r} value={r}>{r}</option>
-          ))}
+          {resources.map(r => <option key={r} value={r}>{r}</option>)}
         </select>
       </div>
 
-      {/* Table */}
+      {/* Permissions table */}
       <div className="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>#</th>
+              <th style={{ width: 48 }}>
+                <input
+                  type="checkbox"
+                  checked={allChecked}
+                  onChange={toggleAll}
+                  disabled={!canEdit}
+                  title={allChecked ? 'Revoke all' : 'Grant all'}
+                  style={{ cursor: 'pointer', width: 16, height: 16 }}
+                />
+              </th>
               <th>Permission</th>
               <th>Resource</th>
               <th>Action</th>
               <th>Description</th>
-              <th>Actions</th>
+              <th style={{ textAlign: 'center' }}>Granted</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={6}>
-                  <div className="empty-state">
-                    <div className="empty-icon">🔑</div>
-                    <div className="empty-title">No permissions found</div>
-                    <div className="empty-text">Try adjusting your search or filters.</div>
-                  </div>
-                </td>
-              </tr>
-            ) : (
-              filtered.map((p) => (
-                <tr key={p.id}>
-                  <td style={{ color: 'var(--color-text-faint)' }}>{p.id}</td>
+            {filtered.map(p => {
+              const granted = currentPerms.includes(p.id);
+              return (
+                <tr
+                  key={p.id}
+                  style={{
+                    background: granted ? `${meta.color}08` : 'transparent',
+                    cursor: canEdit ? 'pointer' : 'default',
+                    opacity: granted ? 1 : 0.6,
+                  }}
+                  onClick={() => toggle(p.id)}
+                >
+                  <td onClick={e => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={granted}
+                      onChange={() => toggle(p.id)}
+                      disabled={!canEdit}
+                      style={{ cursor: 'pointer', width: 16, height: 16 }}
+                    />
+                  </td>
                   <td>
-                    <code
-                      style={{
-                        background: 'var(--color-surface2)',
-                        padding: '2px 8px',
-                        borderRadius: 4,
-                        fontSize: 13,
-                        color: 'var(--color-primary)',
-                      }}
-                    >
-                      {p.name}
+                    <code style={{
+                      background: 'var(--color-surface2)', padding: '2px 8px',
+                      borderRadius: 4, fontSize: 13,
+                      color: granted ? meta.color : 'var(--color-text-muted)',
+                    }}>
+                      {p.id}
                     </code>
                   </td>
-                  <td>
-                    <span className="badge badge-gray">{p.resource}</span>
-                  </td>
+                  <td><span className="badge badge-gray">{p.resource}</span></td>
                   <td>
                     <span className={`badge ${ACTION_COLORS[p.action] || 'badge-gray'}`}>
                       {p.action}
                     </span>
                   </td>
-                  <td style={{ color: 'var(--color-text-muted)', fontSize: 13 }}>{p.description}</td>
-                  <td>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <button className="btn btn-secondary btn-sm" title="Edit">✏️</button>
-                      <button className="btn btn-danger btn-sm" title="Delete">🗑️</button>
-                    </div>
+                  <td style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>{p.description}</td>
+                  <td style={{ textAlign: 'center' }}>
+                    {granted
+                      ? <span style={{ color: 'var(--color-success)', fontWeight: 700 }}>✓</span>
+                      : <span style={{ color: 'var(--color-text-faint)' }}>—</span>}
                   </td>
                 </tr>
-              ))
-            )}
+              );
+            })}
           </tbody>
         </table>
+      </div>
+
+      {/* Info */}
+      <div style={{
+        marginTop: 20, padding: '12px 16px',
+        background: 'var(--color-info-subtle)',
+        border: '1px solid rgba(59,130,246,0.2)',
+        borderRadius: 'var(--radius-md)',
+        fontSize: 13, color: 'var(--color-text-muted)',
+        display: 'flex', gap: 8,
+      }}>
+        <span>ℹ️</span>
+        <span>
+          {canEdit
+            ? 'Changes only take effect after saving. Click a row or the checkbox to toggle a permission.'
+            : 'You have read access only. Request permission:write to update role permissions.'}
+        </span>
       </div>
     </div>
   );

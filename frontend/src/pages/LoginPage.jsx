@@ -27,8 +27,21 @@ const handleSubmit = async (e) => {
     if (!authData || !authData.accessToken) {
       throw new Error('No access token received');
     }
-    
-    setAuth(authData);
+
+    // If the login response already includes user/role info, use it directly.
+    // Otherwise fetch the profile so userRole is available immediately.
+    if (authData.role || authData.roles || authData.username) {
+      setAuth(authData, authData);
+    } else {
+      setAuth(authData);
+      try {
+        const userRes = await authApi.getCurrentUser();
+        setAuth(authData, userRes.data);
+      } catch (_) {
+        // Non-fatal
+      }
+    }
+
     navigate('/dashboard');
     
   } catch (err) {

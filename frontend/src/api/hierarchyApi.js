@@ -1,4 +1,4 @@
-import api from './axios';
+import api from './api';
 
 export const hierarchyApi = {
   getAll: () => api.get('/api/hierarchy'),

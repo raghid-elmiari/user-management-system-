@@ -144,6 +144,37 @@ public AuthResponse login(LoginRequest request) {
                 .build();
     }
 
+        @Transactional(readOnly = true)
+        public AuthResponse getCurrentUser(UUID userId) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        if (!user.isActive()) {
+            throw new DisabledException("User is deactivated");
+        }
+
+        Set<Role> directRoles = user.getUserRoles().stream()
+            .map(UserRole::getRole)
+            .collect(Collectors.toSet());
+        Set<Role> allRoles = roleHierarchyService.getRoleClosure(directRoles);
+        List<String> roleNames = allRoles.stream().map(Role::getName).collect(Collectors.toList());
+        List<String> permissions = allRoles.stream()
+            .flatMap(role -> role.getRolePermissions().stream())
+            .map(rp -> rp.getPermission().getName())
+            .distinct()
+            .collect(Collectors.toList());
+
+        String accessToken = jwtService.generateAccessToken(user.getId(), user.getEmail(), roleNames, permissions);
+
+        return AuthResponse.builder()
+            .accessToken(accessToken)
+            .email(user.getEmail())
+            .username(user.getUsername())
+            .roles(roleNames)
+            .permissions(permissions)
+            .build();
+        }
+
     @Transactional
     public void logout(String tokenStr) {
         refreshTokenRepository.findByToken(tokenStr).ifPresent(token -> {
