@@ -1,6 +1,7 @@
 package com.rbac.controller;
 
 import com.rbac.dto.request.RoleHierarchyRequest;
+import com.rbac.dto.response.RoleHierarchyResponse;
 import com.rbac.service.RoleHierarchyService;
 import javax.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,12 @@ import java.util.UUID;
 public class HierarchyController {
 
     private final RoleHierarchyService hierarchyService;
+
+    @GetMapping
+    @PreAuthorize("hasAuthority('PERMISSION_hierarchy:read')")
+    public ResponseEntity<java.util.List<RoleHierarchyResponse>> getHierarchyLinks() {
+        return ResponseEntity.ok(hierarchyService.getHierarchyLinks());
+    }
 
     @PostMapping
     @PreAuthorize("hasAuthority('PERMISSION_role:write')")

@@ -17,12 +17,12 @@ public class RoleHierarchy {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @MapsId("parentRoleId")
-    @JoinColumn(name = "parent_role_id")
+    @JoinColumn(name = "parent_role_id", columnDefinition = "BINARY(16)")
     private Role parentRole;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @MapsId("childRoleId")
-    @JoinColumn(name = "child_role_id")
+    @JoinColumn(name = "child_role_id", columnDefinition = "BINARY(16)")
     private Role childRole;
 }
 

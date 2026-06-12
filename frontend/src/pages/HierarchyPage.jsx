@@ -1,30 +1,44 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { hierarchyApi } from '../api/hierarchyApi';
+import { rolesApi } from '../api/rolesApi';
 
-const MOCK_HIERARCHY = {
-  id: 1,
-  name: 'ADMIN',
-  label: 'Super Administrator',
-  color: 'var(--color-primary)',
-  bg: 'var(--color-primary-subtle)',
-  children: [
-    {
-      id: 2,
-      name: 'MANAGER',
-      label: 'General Manager',
-      color: 'var(--color-info)',
-      bg: 'var(--color-info-subtle)',
-      children: [
-        {
-          id: 3,
-          name: 'USER',
-          label: 'Standard User',
-          color: 'var(--color-success)',
-          bg: 'var(--color-success-subtle)',
-          children: [],
-        },
-      ],
-    },
-  ],
+const ROLE_VISUALS = {
+  ROLE_ADMIN: { color: 'var(--color-primary)', bg: 'var(--color-primary-subtle)', icon: '👑' },
+  ROLE_MANAGER: { color: 'var(--color-info)', bg: 'var(--color-info-subtle)', icon: '🧑‍💼' },
+  ROLE_USER: { color: 'var(--color-success)', bg: 'var(--color-success-subtle)', icon: '👤' },
+};
+
+const formatLabel = (role) => role.description || role.name.replace('ROLE_', '').replace(/_/g, ' ');
+
+const buildHierarchyTree = (roles, links) => {
+  const nodes = new Map();
+  const childIds = new Set();
+
+  roles.forEach((role) => {
+    const visuals = ROLE_VISUALS[role.name] || { color: 'var(--color-text-muted)', bg: 'var(--color-surface2)', icon: '🛡️' };
+    nodes.set(role.id, {
+      id: role.id,
+      name: role.name.replace('ROLE_', ''),
+      label: formatLabel(role),
+      color: visuals.color,
+      bg: visuals.bg,
+      icon: visuals.icon,
+      children: [],
+    });
+  });
+
+  links.forEach((link) => {
+    const parent = nodes.get(link.parentRoleId);
+    const child = nodes.get(link.childRoleId);
+    if (parent && child) {
+      parent.children.push(child);
+      childIds.add(link.childRoleId);
+    }
+  });
+
+  return roles
+    .map((role) => nodes.get(role.id))
+    .filter((node) => node && !childIds.has(node.id));
 };
 
 const TreeNode = ({ node, depth = 0 }) => {
@@ -62,7 +76,7 @@ const TreeNode = ({ node, depth = 0 }) => {
             fontSize: 16, flexShrink: 0,
           }}
         >
-          🛡️
+          {node.icon}
         </div>
 
         <div style={{ flex: 1 }}>
@@ -96,12 +110,40 @@ const TreeNode = ({ node, depth = 0 }) => {
 };
 
 export const HierarchyPage = () => {
-  const [hierarchy, setHierarchy] = useState(null);
+  const [roles, setRoles] = useState([]);
+  const [links, setLinks] = useState([]);
 
   useEffect(() => {
-    // TODO: fetch from API
-    setHierarchy(MOCK_HIERARCHY);
+    let cancelled = false;
+
+    const loadHierarchy = async () => {
+      try {
+        const [rolesResponse, linksResponse] = await Promise.all([
+          rolesApi.getAll(),
+          hierarchyApi.getAll(),
+        ]);
+
+        if (cancelled) return;
+
+        setRoles(Array.isArray(rolesResponse.data) ? rolesResponse.data : []);
+        setLinks(Array.isArray(linksResponse.data) ? linksResponse.data : []);
+      } catch (error) {
+        console.error('Failed to load hierarchy', error);
+        if (!cancelled) {
+          setRoles([]);
+          setLinks([]);
+        }
+      }
+    };
+
+    loadHierarchy();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  const hierarchy = useMemo(() => buildHierarchyTree(roles, links), [roles, links]);
 
   return (
     <div className="animate-fade-in">
@@ -146,18 +188,20 @@ export const HierarchyPage = () => {
       <div className="card">
         <div className="card-header">
           <div className="card-title">🌳 Role Tree</div>
-          <span className="badge badge-gray">3 roles</span>
+          <span className="badge badge-gray">{roles.length} roles</span>
         </div>
         <div className="card-body" style={{ padding: '12px 0' }}>
-          {hierarchy ? (
+          {hierarchy.length > 0 ? (
             <div className="tree">
-              <TreeNode node={hierarchy} />
+              {hierarchy.map((node) => (
+                <TreeNode key={node.id} node={node} />
+              ))}
             </div>
           ) : (
             <div className="empty-state">
               <div className="empty-icon">🌳</div>
               <div className="empty-title">No hierarchy defined</div>
-              <div className="empty-text">Create roles first, then link them here.</div>
+              <div className="empty-text">Create roles and add parent-child links to build the tree.</div>
             </div>
           )}
         </div>

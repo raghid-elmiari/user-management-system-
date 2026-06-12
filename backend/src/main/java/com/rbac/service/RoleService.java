@@ -13,13 +13,13 @@ import com.rbac.mapper.RoleMapper;
 import com.rbac.repository.PermissionRepository;
 import com.rbac.repository.RoleRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -76,5 +76,29 @@ public class RoleService {
         Role savedRole = roleRepository.saveAndFlush(role);
         return roleMapper.toResponse(savedRole);
     }
+    @Transactional
+public RoleResponse updateRole(UUID id, CreateRoleRequest request) {
+
+    Role role = roleRepository.findById(id)
+            .orElseThrow(() ->
+                    new ResourceNotFoundException("Role not found"));
+
+    role.setName(request.getName());
+    role.setDescription(request.getDescription());
+
+    Role saved = roleRepository.save(role);
+
+    return roleMapper.toResponse(saved);
+}
+
+@Transactional
+public void deleteRole(UUID id) {
+
+    Role role = roleRepository.findById(id)
+            .orElseThrow(() ->
+                    new ResourceNotFoundException("Role not found"));
+
+    roleRepository.delete(role);
+}
 }
 

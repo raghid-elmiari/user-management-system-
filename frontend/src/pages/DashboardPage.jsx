@@ -1,5 +1,10 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { dashboardApi } from "../api/dashboardApi";
+import { permissionsApi } from "../api/permissionsApi";
+import { rolesApi } from "../api/rolesApi";
+import { usersApi } from "../api/usersApi";
 
 // What each role can see
 const ROLE_CONFIG = {
@@ -7,10 +12,10 @@ const ROLE_CONFIG = {
     greeting: "Admin",
     subtitle: "Full system access — manage users, roles, permissions and hierarchy.",
     stats: [
-      { icon: '👥', label: 'Total Users',      value: '—', iconClass: 'stat-icon-orange' },
-      { icon: '🛡️', label: 'Active Roles',     value: '—', iconClass: 'stat-icon-blue'   },
-      { icon: '🔑', label: 'Permissions',       value: '—', iconClass: 'stat-icon-green'  },
-      { icon: '✅', label: 'Active Sessions',   value: '—', iconClass: 'stat-icon-yellow' },
+      { key: 'totalUsers', icon: '👥', label: 'Total Users', value: '—', iconClass: 'stat-icon-orange' },
+      { key: 'activeRoles', icon: '🛡️', label: 'Active Roles', value: '—', iconClass: 'stat-icon-blue' },
+      { key: 'totalPermissions', icon: '🔑', label: 'Permissions', value: '—', iconClass: 'stat-icon-green' },
+      { key: 'activeSessions', icon: '✅', label: 'Active Sessions', value: '—', iconClass: 'stat-icon-yellow' },
     ],
     actions: [
       { icon: '👤', title: 'Add New User',        desc: 'Create and invite a new team member',    to: '/users',       color: 'var(--orange-500)',    permission: 'user:write' },
@@ -23,9 +28,9 @@ const ROLE_CONFIG = {
     greeting: "Manager",
     subtitle: "Manage your team — view users and roles assigned to your group.",
     stats: [
-      { icon: '👥', label: 'Team Members',     value: '—', iconClass: 'stat-icon-orange' },
-      { icon: '🛡️', label: 'Assigned Roles',  value: '—', iconClass: 'stat-icon-blue'   },
-      { icon: '✅', label: 'Active Sessions',  value: '—', iconClass: 'stat-icon-yellow' },
+      { key: 'totalUsers', icon: '👥', label: 'Team Members', value: '—', iconClass: 'stat-icon-orange' },
+      { key: 'activeRoles', icon: '🛡️', label: 'Assigned Roles', value: '—', iconClass: 'stat-icon-blue' },
+      { key: 'activeSessions', icon: '✅', label: 'Active Sessions', value: '—', iconClass: 'stat-icon-yellow' },
     ],
     actions: [
       { icon: '👤', title: 'View Users',   desc: 'Browse and manage team members', to: '/users',     color: 'var(--orange-500)', permission: 'user:read' },
@@ -36,8 +41,8 @@ const ROLE_CONFIG = {
     greeting: "User",
     subtitle: "Welcome! Here's a summary of your access.",
     stats: [
-      { icon: '🛡️', label: 'Your Role',       value: '—', iconClass: 'stat-icon-blue'   },
-      { icon: '🔑', label: 'Your Permissions', value: '—', iconClass: 'stat-icon-green'  },
+      { key: 'userRole', icon: '🛡️', label: 'Your Role', value: '—', iconClass: 'stat-icon-blue' },
+      { key: 'userPermissions', icon: '🔑', label: 'Your Permissions', value: '—', iconClass: 'stat-icon-green' },
     ],
     actions: [
       { icon: '🌳', title: 'View Hierarchy', desc: 'See where your role fits', to: '/hierarchy', color: 'var(--color-warning)', permission: 'hierarchy:read' },
@@ -48,11 +53,95 @@ const ROLE_CONFIG = {
 const DEFAULT_CONFIG = ROLE_CONFIG.ROLE_USER;
 
 export const DashboardPage = () => {
-  const { user, userRole, hasPermission } = useAuth();
+  const { user, userRole, userPermissions, hasPermission, isAuthenticated, loading } = useAuth();
+  const [dashboardStats, setDashboardStats] = useState({
+    totalUsers: '—',
+    activeRoles: '—',
+    totalPermissions: '—',
+    activeSessions: '—',
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadDashboardStats = async () => {
+      try {
+        const [dashboardResult, usersResult, rolesResult, permissionsResult] = await Promise.allSettled([
+          dashboardApi.getStats(),
+          usersApi.getAll(),
+          rolesApi.getAll(),
+          permissionsApi.getAll(),
+        ]);
+
+        if (cancelled) return;
+
+        const nextStats = {
+          totalUsers: '—',
+          activeRoles: '—',
+          totalPermissions: '—',
+          activeSessions: '—',
+        };
+
+        if (dashboardResult.status === 'fulfilled') {
+          nextStats.totalUsers = dashboardResult.value.data?.totalUsers ?? nextStats.totalUsers;
+          nextStats.activeRoles = dashboardResult.value.data?.activeRoles ?? nextStats.activeRoles;
+          nextStats.totalPermissions = dashboardResult.value.data?.totalPermissions ?? nextStats.totalPermissions;
+          nextStats.activeSessions = dashboardResult.value.data?.activeSessions ?? nextStats.activeSessions;
+        }
+
+        if (usersResult.status === 'fulfilled' && Array.isArray(usersResult.value.data)) {
+          nextStats.totalUsers = usersResult.value.data.length;
+        }
+
+        if (rolesResult.status === 'fulfilled' && Array.isArray(rolesResult.value.data)) {
+          nextStats.activeRoles = rolesResult.value.data.length;
+        }
+
+        if (permissionsResult.status === 'fulfilled' && Array.isArray(permissionsResult.value.data)) {
+          nextStats.totalPermissions = permissionsResult.value.data.length;
+        }
+
+        if (nextStats.activeSessions === '—') {
+          nextStats.activeSessions = isAuthenticated ? 1 : '—';
+        }
+
+        setDashboardStats(nextStats);
+      } catch (error) {
+        console.error('Failed to load dashboard stats', error);
+        if (!cancelled) {
+          setDashboardStats({
+            totalUsers: '—',
+            activeRoles: '—',
+            totalPermissions: '—',
+            activeSessions: '—',
+          });
+        }
+      }
+    };
+
+    if (!loading && isAuthenticated) {
+      loadDashboardStats();
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, loading, userRole]);
 
   const config = ROLE_CONFIG[userRole] ?? DEFAULT_CONFIG;
   const displayName = user?.username ?? user?.name ?? "there";
   const quickActions = config.actions.filter((action) => !action.permission || hasPermission(action.permission));
+  const stats = config.stats.map((stat) => {
+    if (stat.key === 'userRole') {
+      return { ...stat, value: userRole ? userRole.replace('ROLE_', '') : '—' };
+    }
+
+    if (stat.key === 'userPermissions') {
+      return { ...stat, value: userPermissions?.length ?? 0 };
+    }
+
+    return { ...stat, value: dashboardStats[stat.key] ?? '—' };
+  });
 
   return (
     <div className="animate-fade-in">
@@ -81,7 +170,7 @@ export const DashboardPage = () => {
 
       {/* Stats */}
       <div className="stats-grid">
-        {config.stats.map((s, i) => (
+        {stats.map((s, i) => (
           <div className="stat-card" key={s.label} style={{ animationDelay: `${i * 60}ms` }}>
             <div className={`stat-icon ${s.iconClass}`}>{s.icon}</div>
             <div>

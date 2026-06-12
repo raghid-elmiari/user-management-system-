@@ -15,10 +15,10 @@ import java.util.UUID;
 @EqualsAndHashCode
 public class RoleHierarchyId implements Serializable {
 
-    @Column(name = "parent_role_id")
+    @Column(name = "parent_role_id", columnDefinition = "BINARY(16)")
     private UUID parentRoleId;
 
-    @Column(name = "child_role_id")
+    @Column(name = "child_role_id", columnDefinition = "BINARY(16)")
     private UUID childRoleId;
 }
 

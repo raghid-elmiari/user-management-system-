@@ -5,11 +5,11 @@ import com.rbac.domain.RoleHierarchy;
 import com.rbac.domain.RoleHierarchyId;
 import com.rbac.exception.CyclicHierarchyException;
 import com.rbac.exception.ResourceNotFoundException;
+import com.rbac.dto.response.RoleHierarchyResponse;
 import com.rbac.repository.RoleHierarchyRepository;
 import com.rbac.repository.RoleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
@@ -59,10 +59,22 @@ public class RoleHierarchyService {
         hierarchyRepository.delete(link);
     }
 
+        @Transactional(readOnly = true)
+        public List<RoleHierarchyResponse> getHierarchyLinks() {
+        return hierarchyRepository.findAll().stream()
+            .map(link -> RoleHierarchyResponse.builder()
+                .parentRoleId(link.getParentRole().getId())
+                .childRoleId(link.getChildRole().getId())
+                .parentRoleName(link.getParentRole().getName())
+                .childRoleName(link.getChildRole().getName())
+                .build())
+            .collect(java.util.stream.Collectors.toList());
+        }
+
     /**
      * Resolves the transitive closure of roles (the role itself plus all its child roles recursively).
      */
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @Transactional(readOnly = true)
     public Set<Role> getRoleClosure(Set<Role> roles) {
         Set<Role> closure = new HashSet<>();
         for (Role role : roles) {

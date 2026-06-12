@@ -1,15 +1,24 @@
-import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { configureAxiosAuth } from '../api/api';
-import { authApi } from '../api/authApi';
+import React, {
+  createContext,
+  useState,
+  useContext,
+  useEffect,
+  useCallback,
+  useMemo,
+} from "react";
+import { useNavigate } from "react-router-dom";
+import { configureAxiosAuth } from "../api/api";
+import { authApi } from "../api/authApi";
 
 const AuthContext = createContext();
 
-const ROLE_PERMISSION_OVERRIDES_KEY = 'rbac.rolePermissionOverrides';
+const ROLE_PERMISSION_OVERRIDES_KEY = "rbac.rolePermissionOverrides";
+
+/* ---------------- STORAGE HELPERS ---------------- */
 
 const loadRolePermissionOverrides = () => {
   try {
-    if (typeof window === 'undefined') return {};
+    if (typeof window === "undefined") return {};
     const raw = localStorage.getItem(ROLE_PERMISSION_OVERRIDES_KEY);
     return raw ? JSON.parse(raw) : {};
   } catch {
@@ -18,30 +27,33 @@ const loadRolePermissionOverrides = () => {
 };
 
 const saveRolePermissionOverrides = (overrides) => {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(ROLE_PERMISSION_OVERRIDES_KEY, JSON.stringify(overrides));
+  if (typeof window === "undefined") return;
+  localStorage.setItem(
+    ROLE_PERMISSION_OVERRIDES_KEY,
+    JSON.stringify(overrides)
+  );
 };
 
-const normalizeList = (value, preferredKeys = ['name', 'permission', 'code', 'id']) => {
+/* ---------------- NORMALIZATION ---------------- */
+
+const normalizeList = (value, preferredKeys = ["name", "code", "id"]) => {
   if (!Array.isArray(value)) return [];
 
   return value
     .map((item) => {
-      if (typeof item === 'string') return item;
-      if (!item || typeof item !== 'object') return null;
+      if (typeof item === "string") return item;
+      if (!item || typeof item !== "object") return null;
 
       for (const key of preferredKeys) {
-        if (typeof item[key] === 'string' && item[key]) {
-          return item[key];
-        }
+        if (item[key]) return item[key];
       }
 
-      if (item.permission && typeof item.permission === 'object') {
-        return item.permission.name ?? item.permission.code ?? item.permission.id ?? null;
+      if (item.permission) {
+        return item.permission.name || item.permission.code || item.permission.id;
       }
 
-      if (item.role && typeof item.role === 'object') {
-        return item.role.name ?? item.role.code ?? item.role.id ?? null;
+      if (item.role) {
+        return item.role.name || item.role.code || item.role.id;
       }
 
       return null;
@@ -49,183 +61,248 @@ const normalizeList = (value, preferredKeys = ['name', 'permission', 'code', 'id
     .filter(Boolean);
 };
 
-const getGrantedRoles = (userData) => {
-  const directRoles = normalizeList(userData?.roles, ['name', 'role', 'code', 'id']);
-  const nestedRoles = normalizeList(userData?.userRoles?.map((entry) => entry?.role), ['name', 'role', 'code', 'id']);
-  return [...new Set([...directRoles, ...nestedRoles])];
+/* ---------------- RBAC HELPERS ---------------- */
+
+// Canonical role priority — highest authority wins as the "primary" role
+const ROLE_PRIORITY = ["ROLE_ADMIN", "ROLE_MANAGER", "ROLE_USER"];
+
+const getGrantedRoles = (user) => {
+  if (!user) return [];
+
+  const directRoles = normalizeList(user.roles);
+  const nestedRoles = normalizeList(
+    user.userRoles?.map((r) => r?.role)
+  );
+
+  const all = [...new Set([...directRoles, ...nestedRoles])];
+
+  // Sort so the highest-priority role is always first — prevents
+  // dashboard flickering when the backend returns roles in a different order
+  return all.sort((a, b) => {
+    const ia = ROLE_PRIORITY.indexOf(a);
+    const ib = ROLE_PRIORITY.indexOf(b);
+    const pa = ia === -1 ? 999 : ia;
+    const pb = ib === -1 ? 999 : ib;
+    return pa - pb;
+  });
 };
 
-const getGrantedPermissions = (userData, rolePermissionOverrides = {}) => {
-  const userRoles = getGrantedRoles(userData);
-  const directPermissions = normalizeList(userData?.permissions);
-  const nestedPermissions = normalizeList(
-    userData?.roles?.flatMap((role) => role?.permissions ?? role?.rolePermissions ?? []),
-  );
-  const rolePermissions = normalizeList(
-    userData?.userRoles?.flatMap((entry) => entry?.role?.permissions ?? entry?.role?.rolePermissions ?? []),
-  );
-  const overridePermissions = userRoles.flatMap((roleName) => rolePermissionOverrides[roleName] ?? []);
+const getGrantedPermissions = (user, overrides = {}) => {
+  if (!user) return [];
 
-  return [...new Set([...directPermissions, ...nestedPermissions, ...rolePermissions, ...overridePermissions])];
+  const roles = getGrantedRoles(user);
+
+  const direct = normalizeList(user.permissions);
+
+  const rolePerms = normalizeList(
+    user.roles?.flatMap((r) => r?.permissions || r?.rolePermissions || [])
+  );
+
+  const nestedPerms = normalizeList(
+    user.userRoles?.flatMap(
+      (r) => r?.role?.permissions || r?.role?.rolePermissions || []
+    )
+  );
+
+  const overridePerms = roles.flatMap((r) => overrides[r] || []);
+
+  return [...new Set([...direct, ...rolePerms, ...nestedPerms, ...overridePerms])];
 };
+
+/* ---------------- CONTEXT ---------------- */
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
+  return ctx;
 };
 
+/* ---------------- PROVIDER ---------------- */
+
 export const AuthProvider = ({ children }) => {
-  const [auth, setAuthState] = useState(null);
-  const [user, setUser] = useState(null);
-  const [rolePermissionOverrides, setRolePermissionOverrides] = useState(() => loadRolePermissionOverrides());
-  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  const getAccessToken = () => localStorage.getItem('accessToken');
-  const getRefreshToken = () => localStorage.getItem('refreshToken');
+  const [auth, setAuthState] = useState(null);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const [rolePermissionOverrides, setRolePermissionOverrides] = useState(() =>
+    loadRolePermissionOverrides()
+  );
+
+  const getAccessToken = () => localStorage.getItem("accessToken");
+  const getRefreshToken = () => localStorage.getItem("refreshToken");
+
+  /* ---------------- AXIOS CONFIG ---------------- */
 
   useEffect(() => {
     configureAxiosAuth({
       getToken: getAccessToken,
-      getRefreshToken: getRefreshToken,
+      getRefreshToken,
       onFailure: () => logout(),
     });
   }, []);
 
-  // On mount, restore session and fetch the current user
+  /* ---------------- INIT AUTH (FIXED) ---------------- */
+
   useEffect(() => {
-    const token = getAccessToken();
-    const refreshToken = getRefreshToken();
+    const init = async () => {
+      const token = getAccessToken();
+      const refresh = getRefreshToken();
 
-    if (token) {
-      setAuthState({ accessToken: token, refreshToken });
+      if (!token || !refresh) {
+        setLoading(false);
+        return;
+      }
 
-      if (refreshToken) {
-        authApi.refreshToken(refreshToken)
-          .then((res) => {
-            setAuthState({
-              accessToken: res.data.accessToken,
-              refreshToken: res.data.refreshToken ?? refreshToken,
-            });
-            setUser({
-              email: res.data.email,
-              username: res.data.username,
-              roles: res.data.roles,
-              permissions: res.data.permissions,
-            });
-            localStorage.setItem('accessToken', res.data.accessToken);
-            if (res.data.refreshToken) {
-              localStorage.setItem('refreshToken', res.data.refreshToken);
-            }
-          })
-          .catch(() => {
-            // Token invalid — clear session
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
-            setAuthState(null);
-          })
-          .finally(() => setLoading(false));
-      } else {
+      try {
+        const res = await authApi.refreshToken(refresh);
+
+        const authData = {
+          accessToken: res.data.accessToken,
+          refreshToken: res.data.refreshToken ?? refresh,
+        };
+
+        const userData = {
+          email: res.data.email,
+          username: res.data.username,
+          roles: res.data.roles,
+          permissions: res.data.permissions,
+          userRoles: res.data.userRoles,
+        };
+
+        setAuthState(authData);
+        setUser(userData);
+
+        localStorage.setItem("accessToken", authData.accessToken);
+        if (res.data.refreshToken) {
+          localStorage.setItem("refreshToken", res.data.refreshToken);
+        }
+      } catch (err) {
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
+        setAuthState(null);
+        setUser(null);
+      } finally {
         setLoading(false);
       }
-    } else {
-      setLoading(false);
-    }
+    };
+
+    init();
   }, []);
+
+  /* ---------------- AUTH ACTIONS ---------------- */
 
   const setAuth = (authData, userData = null) => {
     setAuthState(authData);
     if (userData) setUser(userData);
-    if (authData?.accessToken) localStorage.setItem('accessToken', authData.accessToken);
-    if (authData?.refreshToken) localStorage.setItem('refreshToken', authData.refreshToken);
+
+    if (authData?.accessToken)
+      localStorage.setItem("accessToken", authData.accessToken);
+
+    if (authData?.refreshToken)
+      localStorage.setItem("refreshToken", authData.refreshToken);
   };
 
   const refreshCurrentUser = async () => {
-    const refreshToken = getRefreshToken();
-    if (!refreshToken) {
-      throw new Error('Refresh token is missing');
+    const refresh = getRefreshToken();
+    if (!refresh) throw new Error("Missing refresh token");
+
+    const res = await authApi.refreshToken(refresh);
+
+    const authData = {
+      accessToken: res.data.accessToken,
+      refreshToken: res.data.refreshToken ?? refresh,
+    };
+
+    const userData = {
+      email: res.data.email,
+      username: res.data.username,
+      roles: res.data.roles,
+      permissions: res.data.permissions,
+    };
+
+    setAuthState(authData);
+    setUser(userData);
+
+    localStorage.setItem("accessToken", authData.accessToken);
+    if (res.data.refreshToken) {
+      localStorage.setItem("refreshToken", res.data.refreshToken);
     }
 
-    const response = await authApi.refreshToken(refreshToken);
-    const nextAuth = {
-      accessToken: response.data.accessToken,
-      refreshToken: response.data.refreshToken ?? refreshToken,
-    };
-
-    const nextUser = {
-      email: response.data.email,
-      username: response.data.username,
-      roles: response.data.roles,
-      permissions: response.data.permissions,
-    };
-
-    setAuthState(nextAuth);
-    setUser(nextUser);
-    localStorage.setItem('accessToken', response.data.accessToken);
-    if (response.data.refreshToken) {
-      localStorage.setItem('refreshToken', response.data.refreshToken);
-    }
-
-    return nextUser;
-  };
-
-  const applyRolePermissions = (roleName, permissions) => {
-    const nextOverrides = {
-      ...rolePermissionOverrides,
-      [roleName]: permissions,
-    };
-
-    setRolePermissionOverrides(nextOverrides);
-    saveRolePermissionOverrides(nextOverrides);
+    return userData;
   };
 
   const logout = useCallback(() => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem(ROLE_PERMISSION_OVERRIDES_KEY);
     setAuthState(null);
     setUser(null);
-    navigate('/login');
+    setRolePermissionOverrides({});
+    navigate("/login");
   }, [navigate]);
 
-  const userRole = getGrantedRoles(user)[0] ?? user?.role ?? null;
-  const userPermissions = getGrantedPermissions(user, rolePermissionOverrides);
+  /* ---------------- RBAC DERIVED STATE (STABLE) ---------------- */
 
-  const hasPermission = (permissionOrPermissions, requireAll = false) => {
-    if (!permissionOrPermissions) return true;
+  const userRoles = useMemo(() => getGrantedRoles(user), [user]);
 
+  const userPermissions = useMemo(
+    () => getGrantedPermissions(user, rolePermissionOverrides),
+    [user, rolePermissionOverrides]
+  );
+
+  const userRole = userRoles[0] || null;
+
+  const hasPermission = (perm, requireAll = false) => {
+    if (!perm) return true;
+
+    const required = Array.isArray(perm) ? perm : [perm];
     const granted = new Set(userPermissions);
-    const required = Array.isArray(permissionOrPermissions)
-      ? permissionOrPermissions
-      : [permissionOrPermissions];
 
     return requireAll
-      ? required.every((permission) => granted.has(permission))
-      : required.some((permission) => granted.has(permission));
+      ? required.every((p) => granted.has(p))
+      : required.some((p) => granted.has(p));
   };
 
   const hasRole = (role) => {
     if (!role) return false;
 
-    const grantedRoles = new Set(getGrantedRoles(user));
     const required = Array.isArray(role) ? role : [role];
+    const granted = new Set(userRoles);
 
-    return required.some((item) => grantedRoles.has(item));
+    return required.some((r) => granted.has(r));
   };
+
+  const applyRolePermissions = (roleName, permissions) => {
+    const updated = {
+      ...rolePermissionOverrides,
+      [roleName]: permissions,
+    };
+
+    setRolePermissionOverrides(updated);
+    saveRolePermissionOverrides(updated);
+  };
+
+  /* ---------------- VALUE ---------------- */
 
   const value = {
     auth,
     user,
     userRole,
+    userRoles,
     userPermissions,
+
     setAuth,
     refreshCurrentUser,
-    applyRolePermissions,
-    logout,
+
     hasRole,
     hasPermission,
+
+    applyRolePermissions,
+
+    logout,
+
     isAuthenticated: !!auth?.accessToken,
     loading,
   };

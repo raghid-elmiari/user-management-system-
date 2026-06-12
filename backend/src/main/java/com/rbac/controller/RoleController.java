@@ -10,7 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
+import java.util.UUID;
 import java.util.List;
 
 @RestController
@@ -28,17 +28,38 @@ public class RoleController {
 
     @PostMapping
     @PreAuthorize("hasAuthority('PERMISSION_role:write')")
-    public ResponseEntity<RoleResponse> createRole(@Valid @RequestBody CreateRoleRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(roleService.createRole(request));
+    public ResponseEntity<RoleResponse> createRole(
+            @Valid @RequestBody CreateRoleRequest request) {
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(roleService.createRole(request));
     }
 
     @PutMapping("/{roleName}/permissions")
-    @PreAuthorize("hasAuthority('PERMISSION_permission:write')")
+    @PreAuthorize("hasAuthority('PERMISSION_role:write')")
     public ResponseEntity<RoleResponse> updateRolePermissions(
             @PathVariable String roleName,
-            @Valid @RequestBody UpdateRolePermissionsRequest request
-    ) {
-        return ResponseEntity.ok(roleService.updateRolePermissions(roleName, request));
+            @RequestBody UpdateRolePermissionsRequest request) {
+
+        return ResponseEntity.ok(
+                roleService.updateRolePermissions(roleName, request)
+        );
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('PERMISSION_role:write')")
+    public ResponseEntity<RoleResponse> updateRole(
+            @PathVariable UUID id,
+            @RequestBody CreateRoleRequest request) {
+
+        return ResponseEntity.ok(
+                roleService.updateRole(id, request)
+        );
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteRole(@PathVariable UUID id) {
+        roleService.deleteRole(id);
+        return ResponseEntity.noContent().build();
     }
 }
-

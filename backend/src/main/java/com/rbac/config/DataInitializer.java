@@ -27,20 +27,27 @@ public class DataInitializer implements CommandLineRunner {
             System.out.println("Initializing default roles, permissions, and users...");
 
             // Create permissions
-            Permission userRead = createPermissionIfAbsent("user:read", "user", "read", "Read user details");
-            Permission userWrite = createPermissionIfAbsent("user:write", "user", "write", "Create/Update user details");
-            Permission userDelete = createPermissionIfAbsent("user:delete", "user", "delete", "Delete users");
+            // Create permissions
+Permission userRead = createPermissionIfAbsent("user:read", "user", "read", "Read user details");
+Permission userWrite = createPermissionIfAbsent("user:write", "user", "write", "Create/Update user details");
+Permission userDelete = createPermissionIfAbsent("user:delete", "user", "delete", "Delete users");
 
-            Permission roleRead = createPermissionIfAbsent("role:read", "role", "read", "Read roles");
-            Permission roleWrite = createPermissionIfAbsent("role:write", "role", "write", "Create/Update roles");
+Permission roleRead = createPermissionIfAbsent("role:read", "role", "read", "Read roles");
+Permission roleWrite = createPermissionIfAbsent("role:write", "role", "write", "Create/Update roles");
 
-            Permission permRead = createPermissionIfAbsent("permission:read", "permission", "read", "Read permissions");
-            Permission permWrite = createPermissionIfAbsent("permission:write", "permission", "write", "Create permissions");
+Permission permRead = createPermissionIfAbsent("permission:read", "permission", "read", "Read permissions");
+Permission permWrite = createPermissionIfAbsent("permission:write", "permission", "write", "Create permissions");
+
+Permission hierarchyRead = createPermissionIfAbsent("hierarchy:read", "hierarchy", "read", "Read role hierarchy");
+
+
+            
 
             // Create roles
             Role adminRole = createRoleIfAbsent("ROLE_ADMIN", "Administrator with full access");
             Role managerRole = createRoleIfAbsent("ROLE_MANAGER", "Manager with user management capabilities");
             Role userRole = createRoleIfAbsent("ROLE_USER", "Regular user with basic access");
+            
 
             // Assign permissions to roles
             assignPermissionToRole(adminRole, userRead);
@@ -50,16 +57,19 @@ public class DataInitializer implements CommandLineRunner {
             assignPermissionToRole(adminRole, roleWrite);
             assignPermissionToRole(adminRole, permRead);
             assignPermissionToRole(adminRole, permWrite);
+            assignPermissionToRole(adminRole, hierarchyRead);
+
 
             assignPermissionToRole(managerRole, userRead);
             assignPermissionToRole(managerRole, userWrite);
             assignPermissionToRole(managerRole, roleRead);
-
-            assignPermissionToRole(userRole, userRead);
+assignPermissionToRole(userRole, hierarchyRead);
+            
 
             // Create Role Hierarchy: ROLE_ADMIN -> ROLE_MANAGER -> ROLE_USER
-            //createHierarchyLinkIfAbsent(adminRole, managerRole);
-           // createHierarchyLinkIfAbsent(managerRole, userRole);
+            createHierarchyLinkIfAbsent(adminRole, managerRole);
+            createHierarchyLinkIfAbsent(managerRole, userRole);
+           
 
             // Admin user
             User admin = User.builder()

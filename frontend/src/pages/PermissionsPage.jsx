@@ -5,28 +5,28 @@ import { rolesApi } from '../api/rolesApi';
 
 // All available permissions in the system
 const ALL_PERMISSIONS = [
-  { id: 'user:read',        resource: 'user',       action: 'read',   description: 'View user profiles and list' },
-  { id: 'user:write',       resource: 'user',       action: 'write',  description: 'Create and update users' },
-  { id: 'user:delete',      resource: 'user',       action: 'delete', description: 'Delete users from the system' },
-  { id: 'role:read',        resource: 'role',       action: 'read',   description: 'View roles and their details' },
-  { id: 'role:write',       resource: 'role',       action: 'write',  description: 'Create and update roles' },
-  { id: 'role:delete',      resource: 'role',       action: 'delete', description: 'Delete roles from the system' },
-  { id: 'permission:read',  resource: 'permission', action: 'read',   description: 'View permission definitions' },
-  { id: 'permission:write', resource: 'permission', action: 'write',  description: 'Create and update permissions' },
-  { id: 'hierarchy:read',   resource: 'hierarchy',  action: 'read',   description: 'View role hierarchy tree' },
-  { id: 'hierarchy:write',  resource: 'hierarchy',  action: 'write',  description: 'Modify role hierarchy structure' },
+  { id: 'user:read', resource: 'user', action: 'read', description: 'View user profiles and list' },
+  { id: 'user:write', resource: 'user', action: 'write', description: 'Create and update users' },
+  { id: 'user:delete', resource: 'user', action: 'delete', description: 'Delete users from the system' },
+  { id: 'role:read', resource: 'role', action: 'read', description: 'View roles and their details' },
+  { id: 'role:write', resource: 'role', action: 'write', description: 'Create and update roles' },
+  { id: 'role:delete', resource: 'role', action: 'delete', description: 'Delete roles from the system' },
+  { id: 'permission:read', resource: 'permission', action: 'read', description: 'View permission definitions' },
+  { id: 'permission:write', resource: 'permission', action: 'write', description: 'Create and update permissions' },
+  { id: 'hierarchy:read', resource: 'hierarchy', action: 'read', description: 'View role hierarchy tree' },
+
 ];
 
 // Default permission assignments per role
 const DEFAULT_ROLE_PERMISSIONS = {
   ROLE_ADMIN: [
-    'user:read','user:write','user:delete',
-    'role:read','role:write','role:delete',
-    'permission:read','permission:write',
-    'hierarchy:read','hierarchy:write',
+    'user:read', 'user:write', 'user:delete',
+    'role:read', 'role:write', 'role:delete',
+    'permission:read', 'permission:write',
+
   ],
   ROLE_MANAGER: [
-    'user:read','user:write',
+    'user:read', 'user:write',
     'role:read',
     'hierarchy:read',
   ],
@@ -40,52 +40,45 @@ const ACTION_COLORS = { read: 'badge-blue', write: 'badge-orange', delete: 'badg
 const ROLES = ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_USER'];
 
 const ROLE_META = {
-  ROLE_ADMIN:   { label: 'Admin',   color: 'var(--orange-500)',    bg: 'var(--color-primary-subtle)', icon: '👑' },
-  ROLE_MANAGER: { label: 'Manager', color: 'var(--color-info)',    bg: 'var(--color-info-subtle)',    icon: '🧑‍💼' },
-  ROLE_USER:    { label: 'User',    color: 'var(--color-success)', bg: 'var(--color-success-subtle)', icon: '👤' },
+  ROLE_ADMIN: { label: 'Admin', color: 'var(--orange-500)', bg: 'var(--color-primary-subtle)', icon: '👑' },
+  ROLE_MANAGER: { label: 'Manager', color: 'var(--color-info)', bg: 'var(--color-info-subtle)', icon: '🧑‍💼' },
+  ROLE_USER: { label: 'User', color: 'var(--color-success)', bg: 'var(--color-success-subtle)', icon: '👤' },
 };
 
 export const PermissionsPage = () => {
   const { loading, hasPermission, refreshCurrentUser, applyRolePermissions } = useAuth();
 
   const [rolePermissions, setRolePermissions] = useState(DEFAULT_ROLE_PERMISSIONS);
-  const [selectedRole, setSelectedRole]       = useState('ROLE_MANAGER');
-  const [dirty, setDirty]                     = useState(false);
-  const [saved, setSaved]                     = useState(false);
-  const [saveError, setSaveError]             = useState('');
-  const [filterResource, setFilterResource]   = useState('');
+  const [selectedRole, setSelectedRole] = useState('ROLE_MANAGER');
+  const [dirty, setDirty] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [filterResource, setFilterResource] = useState('');
 
   useEffect(() => {
-    let cancelled = false;
-
     const loadPermissions = async () => {
       try {
         const response = await rolesApi.getAll();
-        if (cancelled) return;
 
-        const nextPermissions = response.data.reduce((acc, role) => {
-          acc[role.name] = Array.isArray(role.permissions) ? role.permissions : [];
-          return acc;
-        }, {});
+        const permissionsMap = {};
 
-        setRolePermissions((prev) => ({
-          ...DEFAULT_ROLE_PERMISSIONS,
-          ...prev,
-          ...nextPermissions,
-        }));
+        response.data.forEach(role => {
+          permissionsMap[role.name] =
+            role.permissions?.map(permission => permission.name) || [];
+        });
+
+        setRolePermissions(permissionsMap);
       } catch (error) {
-        console.error('Failed to load role permissions', error);
-        if (!cancelled) {
-          setRolePermissions(DEFAULT_ROLE_PERMISSIONS);
-        }
+        console.error('Failed to load permissions', error);
+        const response = await rolesApi.getAll();
+
+        console.log("ROLES:", response.data);
+        // fallback
+        setRolePermissions(DEFAULT_ROLE_PERMISSIONS);
       }
     };
 
     loadPermissions();
-
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   if (loading) return null;
@@ -119,29 +112,17 @@ export const PermissionsPage = () => {
     if (!canEdit) return;
 
     try {
-      const response = await rolesApi.updatePermissions(selectedRole, rolePermissions[selectedRole]);
-      const savedPermissions = Array.isArray(response.data?.permissions)
-        ? response.data.permissions
-        : rolePermissions[selectedRole];
-
-      setRolePermissions((prev) => ({
-        ...prev,
-        [selectedRole]: savedPermissions,
-      }));
-      applyRolePermissions(selectedRole, savedPermissions);
+      await rolesApi.updatePermissions(selectedRole, rolePermissions[selectedRole]);
       setSaveError('');
+      await refreshCurrentUser();
+      applyRolePermissions(selectedRole, rolePermissions[selectedRole]);
       setDirty(false);
       setSaved(true);
-      try {
-        await refreshCurrentUser();
-      } catch (refreshError) {
-        console.warn('Permissions saved, but the current user could not be refreshed immediately.', refreshError);
-      }
       setTimeout(() => setSaved(false), 3000);
     } catch (error) {
       console.error('Failed to save permissions', error);
-      setSaveError('Failed to save permissions on the server. Please retry after checking the backend connection.');
-      setSaved(false);
+      setSaveError('Could not save to the server. Check that the backend is running and the PUT /api/roles/{roleName}/permissions endpoint is available.');
+
     }
   };
 
@@ -154,13 +135,13 @@ export const PermissionsPage = () => {
   };
 
   const allChecked = filtered.every(p => currentPerms.includes(p.id));
-  const toggleAll  = () => {
+  const toggleAll = () => {
     if (!canEdit) return;
 
     const filteredIds = filtered.map(p => p.id);
     setRolePermissions(prev => {
-      const existing  = prev[selectedRole] ?? [];
-      const updated   = allChecked
+      const existing = prev[selectedRole] ?? [];
+      const updated = allChecked
         ? existing.filter(id => !filteredIds.includes(id))
         : [...new Set([...existing, ...filteredIds])];
       return { ...prev, [selectedRole]: updated };
@@ -230,9 +211,9 @@ export const PermissionsPage = () => {
       {/* Role selector tabs */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 24 }}>
         {ROLES.map(role => {
-          const m      = ROLE_META[role];
+          const m = ROLE_META[role];
           const active = selectedRole === role;
-          const count  = (rolePermissions[role] ?? []).length;
+          const count = (rolePermissions[role] ?? []).length;
           return (
             <button
               key={role}

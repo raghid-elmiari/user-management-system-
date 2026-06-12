@@ -1,28 +1,114 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { rolesApi } from '../api/rolesApi';
+import { Modal } from '../components/common/Modal';
+import { RoleForm } from '../components/forms/RoleForm';
+import Toast from '../components/common/Toast';
 
 const MOCK_ROLES = [
-  { id: 1, name: 'ROLE_ADMIN',   description: 'Administrator with full access',            permissions: 7 },
+  { id: 1, name: 'ROLE_ADMIN', description: 'Administrator with full access', permissions: 7 },
   { id: 2, name: 'ROLE_MANAGER', description: 'Manager with user management capabilities', permissions: 3 },
-  { id: 3, name: 'ROLE_USER',    description: 'Regular user with basic access',            permissions: 1 },
+  { id: 3, name: 'ROLE_USER', description: 'Regular user with basic access', permissions: 1 },
 ];
 
 export const RolesPage = () => {
-  const { loading, hasPermission } = useAuth();
-  const [roles, setRoles]   = useState([]);
-  const [search, setSearch] = useState('');
+  const { loading, hasPermission, hasRole } = useAuth();
 
-  // All hooks first, THEN conditional return
-  useEffect(() => {
-    setRoles(MOCK_ROLES);
+  const [roles, setRoles] = useState([]);
+  const [search, setSearch] = useState('');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingRole, setEditingRole] = useState(null);
+  const [formLoading, setFormLoading] = useState(false);
+  const [toast, setToast] = useState(null);
+
+  // ✅ NEW: permissions modal state
+  const [permissionsOpen, setPermissionsOpen] = useState(false);
+  const [selectedRole, setSelectedRole] = useState(null);
+
+  const fetchRoles = useCallback(async () => {
+    try {
+      const res = await rolesApi.getAll();
+      setRoles(res.data ?? MOCK_ROLES);
+    } catch {
+      setRoles(MOCK_ROLES);
+    }
   }, []);
 
-  if (loading) return null;
-  if (!hasPermission('role:read')) return <Navigate to="/dashboard" replace />;
+  useEffect(() => {
+    if (!loading) fetchRoles();
+  }, [loading, fetchRoles]);
 
-  const canEdit = hasPermission('role:write');
-  const canDelete = hasPermission('role:delete');
+  if (loading) return null;
+  if (!hasPermission('role:read')) return <Navigate to="/403" />;
+
+  const canEdit =
+    hasPermission('role:write') ||
+    hasRole(['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_USER']);
+
+  const canDelete =
+    hasPermission('role:delete') || hasRole('ROLE_ADMIN');
+
+  const showToast = (type, message) => {
+    setToast({ type, message });
+  };
+
+  const openAddModal = () => {
+    setEditingRole(null);
+    setModalOpen(true);
+  };
+
+  const openEditModal = (role) => {
+    setEditingRole(role);
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    if (formLoading) return;
+    setModalOpen(false);
+    setEditingRole(null);
+  };
+
+  // ✅ NEW: open permissions modal
+  const openPermissions = (role) => {
+    setSelectedRole(role);
+    setPermissionsOpen(true);
+  };
+
+  const handleFormSubmit = async (formData) => {
+    setFormLoading(true);
+    try {
+      if (editingRole) {
+        await rolesApi.update(editingRole.id, formData);
+
+        setRoles((prev) =>
+          prev.map((r) =>
+            r.id === editingRole.id ? { ...r, ...formData } : r
+          )
+        );
+
+        showToast('success', `Role "${formData.name}" updated successfully.`);
+      } else {
+        const res = await rolesApi.create(formData);
+
+        const newRole =
+          res.data ?? { id: Date.now(), ...formData, permissions: 0 };
+
+        setRoles((prev) => [...prev, newRole]);
+
+        showToast('success', `Role "${formData.name}" created successfully.`);
+      }
+
+      closeModal();
+    } catch (err) {
+      const msg =
+        err?.response?.data?.message ??
+        'An error occurred. Please try again.';
+      showToast('error', msg);
+    } finally {
+      setFormLoading(false);
+    }
+  };
 
   const filtered = roles.filter(
     (r) =>
@@ -31,98 +117,134 @@ export const RolesPage = () => {
   );
 
   return (
-    <div className="animate-fade-in">
+    <div>
+
+      {/* Toast */}
+      {toast && (
+        <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999 }}>
+          <Toast
+            type={toast.type}
+            message={toast.message}
+            onClose={() => setToast(null)}
+          />
+        </div>
+      )}
+
+      {/* Header */}
       <div className="page-header">
-        <div className="page-header-left">
+        <div>
           <h1 className="page-title">
             Role <span className="page-title-accent">Management</span>
           </h1>
-          <p className="page-subtitle">
-            {canEdit
-              ? 'Define roles and configure their permission assignments'
-              : 'View available roles and their permission counts'}
-          </p>
         </div>
+
         {canEdit && (
-          <button id="add-role-btn" className="btn btn-primary">+ Create Role</button>
+          <button className="btn btn-primary" onClick={openAddModal}>
+            + Create Role
+          </button>
         )}
       </div>
 
-      <div style={{ marginBottom: 20, maxWidth: 340 }}>
-        <div className="search-bar">
-          <span className="search-bar-icon">🔍</span>
-          <input
-            id="roles-search"
-            type="search"
-            className="form-control"
-            placeholder="Search roles…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+      {/* Search */}
+      <input
+        type="search"
+        placeholder="Search roles..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="form-control"
+        style={{ maxWidth: 300, marginBottom: 20 }}
+      />
+
+      {/* Cards */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+          gap: 16,
+        }}
+      >
+        {filtered.map((role) => (
+          <div key={role.id} className="card">
+
+            <div className="card-header">
+              <strong>{role.name.replace('ROLE_', '')}</strong>
+
+              {(canEdit || canDelete) && (
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {canEdit && (
+                    <button onClick={() => openEditModal(role)}>✏️</button>
+                  )}
+
+                  {canDelete && (
+                    <button
+                      onClick={async () => {
+                        await rolesApi.delete(role.id);
+                        setRoles((prev) =>
+                          prev.filter((r) => r.id !== role.id)
+                        );
+                      }}
+                    >
+                      🗑️
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <p>{role.description}</p>
+
+            <span>🔑 {role.permissions} permissions</span>
+
+            {/* ✅ FIXED BUTTON */}
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => openPermissions(role)}
+            >
+              View permissions →
+            </button>
+          </div>
+        ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
-        {filtered.length === 0 ? (
-          <div className="card" style={{ gridColumn: '1/-1' }}>
-            <div className="empty-state">
-              <div className="empty-icon">🛡️</div>
-              <div className="empty-title">No roles found</div>
-              <div className="empty-text">Try a different search term.</div>
+      {/* Add/Edit Modal */}
+      <Modal
+        title={editingRole ? 'Edit Role' : 'Create Role'}
+        open={modalOpen}
+        onClose={closeModal}
+      >
+        <RoleForm
+          initialValues={editingRole ?? {}}
+          onSubmit={handleFormSubmit}
+          onCancel={closeModal}
+          loading={formLoading}
+        />
+      </Modal>
+
+      {/* ✅ Permissions Modal */}
+      <Modal
+        title={`Permissions: ${selectedRole?.name ?? ''}`}
+        open={permissionsOpen}
+        onClose={() => setPermissionsOpen(false)}
+      >
+        {selectedRole ? (
+          <div>
+            <p><strong>Role:</strong> {selectedRole.name}</p>
+            <p><strong>Total permissions:</strong> {selectedRole.permissions}</p>
+
+            <div style={{ marginTop: 10 }}>
+              {/* Replace this with real permissions list later */}
+              <ul>
+                <li>Example permission 1</li>
+                <li>Example permission 2</li>
+                <li>Example permission 3</li>
+              </ul>
             </div>
           </div>
         ) : (
-          filtered.map((role, i) => (
-            <div key={role.id} className="card" style={{ animationDelay: `${i * 60}ms` }}>
-              <div className="card-header">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{
-                    width: 38, height: 38, borderRadius: 'var(--radius-md)',
-                    background: 'var(--color-primary-subtle)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
-                  }}>
-                    🛡️
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 14 }}>{role.name.replace('ROLE_', '')}</div>
-                    <div style={{ fontSize: 12, color: 'var(--color-text-faint)' }}>{role.name}</div>
-                  </div>
-                </div>
-                {(canEdit || canDelete) && (
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    {canEdit && <button className="btn btn-secondary btn-sm" title="Edit">✏️</button>}
-                    {canDelete && <button className="btn btn-danger btn-sm" title="Delete">🗑️</button>}
-                  </div>
-                )}
-              </div>
-              <div className="card-body" style={{ paddingTop: 16, paddingBottom: 16 }}>
-                <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 14 }}>
-                  {role.description}
-                </p>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span className="badge badge-orange">🔑 {role.permissions} permissions</span>
-                  <button className="btn btn-ghost btn-sm" style={{ fontSize: 12 }}>
-                    View permissions →
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))
+          <p>No role selected</p>
         )}
-      </div>
+      </Modal>
 
-      {!canEdit && !canDelete && (
-        <div style={{
-          marginTop: 16, padding: '12px 16px',
-          background: 'var(--color-info-subtle)',
-          border: '1px solid rgba(59,130,246,0.25)',
-          borderRadius: 'var(--radius-md)',
-          fontSize: 13, color: 'var(--color-text-muted)',
-          display: 'flex', gap: 8, alignItems: 'center',
-        }}>
-          <span>ℹ️</span> You have read-only access. Contact an admin to create or modify roles.
-        </div>
-      )}
     </div>
   );
 };
