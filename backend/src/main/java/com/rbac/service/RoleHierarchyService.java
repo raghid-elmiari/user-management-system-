@@ -9,6 +9,7 @@ import com.rbac.repository.RoleHierarchyRepository;
 import com.rbac.repository.RoleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
@@ -61,6 +62,7 @@ public class RoleHierarchyService {
     /**
      * Resolves the transitive closure of roles (the role itself plus all its child roles recursively).
      */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public Set<Role> getRoleClosure(Set<Role> roles) {
         Set<Role> closure = new HashSet<>();
         for (Role role : roles) {
@@ -92,8 +94,7 @@ private void resolveClosureRecursive(Role currentRole, Set<Role> closure) {
             }
         }
     } catch (Exception e) {
-        System.err.println("Error finding child roles for: " + currentRole.getName());
-        // Don't throw - just continue
+        System.err.println("Error finding child roles for: " + currentRole.getName() + " [" + e.getClass().getName() + ": " + e.getMessage() + "]");
     }
 }
     private boolean isReachable(UUID start, UUID target, Set<UUID> visited) {

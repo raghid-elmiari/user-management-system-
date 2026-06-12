@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build output
+target/
+build/
+dist/
+
+# Logs
+*.log
+backend/output.txt
+
+# Archives
+*.zip
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
