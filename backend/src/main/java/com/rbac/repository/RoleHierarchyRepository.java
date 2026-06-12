@@ -10,10 +10,10 @@ import java.util.UUID;
 
 public interface RoleHierarchyRepository extends JpaRepository<RoleHierarchy, RoleHierarchyId> {
 
-    @Query("SELECT rh.id.parentRoleId FROM RoleHierarchy rh WHERE rh.id.childRoleId = :childRoleId")
+    @Query("SELECT rh.parentRole.id FROM RoleHierarchy rh WHERE rh.childRole.id = :childRoleId")
     List<UUID> findParentRoleIdsByChildRoleId(UUID childRoleId);
 
-    @Query("SELECT rh.id.childRoleId FROM RoleHierarchy rh WHERE rh.id.parentRoleId = :parentRoleId")
+    @Query("SELECT rh.childRole.id FROM RoleHierarchy rh WHERE rh.parentRole.id = :parentRoleId")
     List<UUID> findChildRoleIdsByParentRoleId(UUID parentRoleId);
 }
 

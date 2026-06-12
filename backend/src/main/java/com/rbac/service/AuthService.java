@@ -74,8 +74,8 @@ public class AuthService {
                 .role(userRole)
                 .assignedAt(OffsetDateTime.now())
                 .build();
-        userRoleRepository.save(uRole);
-        saved.getUserRoles().add(uRole);
+        UserRole savedUserRole = userRoleRepository.save(uRole);
+        saved.getUserRoles().add(savedUserRole);
 
 
         return buildAuthResponse(saved);
