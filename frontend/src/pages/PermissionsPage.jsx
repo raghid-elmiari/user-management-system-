@@ -56,8 +56,36 @@ export const PermissionsPage = () => {
   const [filterResource, setFilterResource]   = useState('');
 
   useEffect(() => {
-    // TODO: fetch from API — for now use defaults
-    setRolePermissions(DEFAULT_ROLE_PERMISSIONS);
+    let cancelled = false;
+
+    const loadPermissions = async () => {
+      try {
+        const response = await rolesApi.getAll();
+        if (cancelled) return;
+
+        const nextPermissions = response.data.reduce((acc, role) => {
+          acc[role.name] = Array.isArray(role.permissions) ? role.permissions : [];
+          return acc;
+        }, {});
+
+        setRolePermissions((prev) => ({
+          ...DEFAULT_ROLE_PERMISSIONS,
+          ...prev,
+          ...nextPermissions,
+        }));
+      } catch (error) {
+        console.error('Failed to load role permissions', error);
+        if (!cancelled) {
+          setRolePermissions(DEFAULT_ROLE_PERMISSIONS);
+        }
+      }
+    };
+
+    loadPermissions();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (loading) return null;
@@ -91,20 +119,29 @@ export const PermissionsPage = () => {
     if (!canEdit) return;
 
     try {
-      await rolesApi.updatePermissions(selectedRole, rolePermissions[selectedRole]);
+      const response = await rolesApi.updatePermissions(selectedRole, rolePermissions[selectedRole]);
+      const savedPermissions = Array.isArray(response.data?.permissions)
+        ? response.data.permissions
+        : rolePermissions[selectedRole];
+
+      setRolePermissions((prev) => ({
+        ...prev,
+        [selectedRole]: savedPermissions,
+      }));
+      applyRolePermissions(selectedRole, savedPermissions);
       setSaveError('');
-      await refreshCurrentUser();
-      applyRolePermissions(selectedRole, rolePermissions[selectedRole]);
       setDirty(false);
       setSaved(true);
+      try {
+        await refreshCurrentUser();
+      } catch (refreshError) {
+        console.warn('Permissions saved, but the current user could not be refreshed immediately.', refreshError);
+      }
       setTimeout(() => setSaved(false), 3000);
     } catch (error) {
       console.error('Failed to save permissions', error);
-      applyRolePermissions(selectedRole, rolePermissions[selectedRole]);
-      setDirty(false);
-      setSaved(true);
-      setSaveError('Saved locally because the server update route was unavailable. Restart the backend to persist this change on the server.');
-      setTimeout(() => setSaved(false), 3000);
+      setSaveError('Failed to save permissions on the server. Please retry after checking the backend connection.');
+      setSaved(false);
     }
   };
 

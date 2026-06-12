@@ -72,7 +72,9 @@ public class RoleService {
 
         role.getRolePermissions().clear();
         role.getRolePermissions().addAll(updatedPermissions);
-        return roleMapper.toResponse(roleRepository.save(role));
+
+        Role savedRole = roleRepository.saveAndFlush(role);
+        return roleMapper.toResponse(savedRole);
     }
 }
 
