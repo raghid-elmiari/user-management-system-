@@ -18,6 +18,16 @@ export const UsersPage = () => {
   const { loading, hasPermission } = useAuth();
   const [users, setUsers]   = useState([]);
   const [search, setSearch] = useState('');
+  const [editingUser, setEditingUser] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+
+  const [newUser, setNewUser] = useState({
+  username: '',
+  email: '',
+  password: '',
+  role: 'ROLE_USER'
+  });
 
   // All hooks first, THEN conditional return
   useEffect(() => {
@@ -30,13 +40,61 @@ export const UsersPage = () => {
   const canEdit = hasPermission('user:write');
   const canDelete = hasPermission('user:delete');
 
+
   const filtered = users.filter(
     (u) =>
       u.name.toLowerCase().includes(search.toLowerCase()) ||
       u.email.toLowerCase().includes(search.toLowerCase()) ||
       u.username.toLowerCase().includes(search.toLowerCase())
   );
+  const handleCreateUser = () => {
+  if (!newUser.username || !newUser.email) {
+    alert('Please fill all fields');
+    return;
+  }
 
+  const user = {
+    id: users.length + 1,
+    name: newUser.username,
+    username: newUser.username,
+    email: newUser.email,
+    role: newUser.role,
+    status: 'Active'
+  };
+
+  setUsers([...users, user]);
+
+  setNewUser({
+    username: '',
+    email: '',
+    password: '',
+    role: 'ROLE_USER'
+  });
+
+  setShowAddModal(false);
+};
+
+const handleDeleteUser = (id) => {
+  if (window.confirm('Delete this user?')) {
+    setUsers(users.filter(user => user.id !== id));
+  }
+};
+
+const handleEditUser = (user) => {
+  setEditingUser({ ...user });
+  setShowEditModal(true);
+};
+
+const handleUpdateUser = () => {
+  setUsers(
+    users.map(user =>
+      user.id === editingUser.id ? editingUser : user
+    )
+  );
+
+  setShowEditModal(false);
+  setEditingUser(null);
+};
   return (
     <div className="animate-fade-in">
       <div className="page-header">
@@ -51,7 +109,7 @@ export const UsersPage = () => {
           </p>
         </div>
         {canEdit && (
-          <button id="add-user-btn" className="btn btn-primary">+ Add User</button>
+          <button id="add-user-btn"  onClick={() => setShowAddModal(true)} className="btn btn-primary">+ Add User</button>
         )}
       </div>
 
@@ -119,8 +177,24 @@ export const UsersPage = () => {
                   {(canEdit || canDelete) && (
                     <td>
                       <div style={{ display: 'flex', gap: 6 }}>
-                        {canEdit && <button className="btn btn-secondary btn-sm" title="Edit">✏️</button>}
-                        {canDelete && <button className="btn btn-danger btn-sm" title="Delete">🗑️</button>}
+                        {canEdit && (
+  <button
+          className="btn btn-secondary btn-sm"
+          title="Edit"
+          onClick={() => handleEditUser(u)}
+        >
+          ✏️
+   </button>
+      )}
+                        {canDelete && (
+  <button
+        className="btn btn-danger btn-sm"
+        title="Delete"
+        onClick={() => handleDeleteUser(u.id)}
+      >
+        🗑️
+  </button>
+    )}
                       </div>
                     </td>
                   )}
@@ -143,6 +217,132 @@ export const UsersPage = () => {
           <span>ℹ️</span> You have read-only access. Contact an admin to make changes.
         </div>
       )}
+      {showAddModal && (
+      <div className="modal">
+        <div className="modal-content">
+
+        <h3>Create User</h3>
+
+        <input
+          placeholder="Username"
+          value={newUser.username}
+          onChange={(e) =>
+            setNewUser({
+              ...newUser,
+              username: e.target.value
+            })
+          }
+        />
+
+        <input
+          placeholder="Email"
+          value={newUser.email}
+          onChange={(e) =>
+            setNewUser({
+              ...newUser,
+              email: e.target.value
+            })
+          }
+        />
+
+        <input
+          type="password"
+          placeholder="Password"
+          value={newUser.password}
+          onChange={(e) =>
+            setNewUser({
+              ...newUser,
+              password: e.target.value
+            })
+          }
+        />
+
+        <select
+          value={newUser.role}
+          onChange={(e) =>
+            setNewUser({
+              ...newUser,
+              role: e.target.value
+            })
+          }
+        >
+          <option value="ROLE_USER">User</option>
+          <option value="ROLE_MANAGER">Manager</option>
+          <option value="ROLE_ADMIN">Admin</option>
+        </select>
+
+        <button className="btn btn-primary"
+  onClick={handleCreateUser}>Save</button>
+
+        <button
+          onClick={() => setShowAddModal(false)}
+        >
+          Cancel
+        </button>
+
+      </div>
+      </div>
+    )}
+    {showEditModal && editingUser && (
+  <div className="modal">
+    <div className="modal-content">
+
+      <h3>Edit User</h3>
+
+      <input
+        value={editingUser.username}
+        onChange={(e) =>
+          setEditingUser({
+            ...editingUser,
+            username: e.target.value,
+            name: e.target.value
+          })
+        }
+      />
+
+      <input
+        value={editingUser.email}
+        onChange={(e) =>
+          setEditingUser({
+            ...editingUser,
+            email: e.target.value
+          })
+        }
+      />
+
+      <select
+        value={editingUser.role}
+        onChange={(e) =>
+          setEditingUser({
+            ...editingUser,
+            role: e.target.value
+          })
+        }
+      >
+        <option value="ROLE_USER">User</option>
+        <option value="ROLE_MANAGER">Manager</option>
+        <option value="ROLE_ADMIN">Admin</option>
+      </select>
+
+      <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+        <button
+          className="btn btn-primary"
+          onClick={handleUpdateUser}
+        >
+          Update
+        </button>
+
+        <button
+          className="btn btn-secondary"
+          onClick={() => setShowEditModal(false)}
+        >
+          Cancel
+        </button>
+      </div>
+
+    </div>
+  </div>
+)}
     </div>
   );
 };
