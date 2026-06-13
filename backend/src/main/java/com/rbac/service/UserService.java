@@ -165,7 +165,8 @@ public class UserService {
 
     // ── private helper ────────────────────────────────────────────
 
-  private void assignRoleByName(User user, String roleName) {
+
+ private void assignRoleByName(User user, String roleName) {
     Role role = roleRepository.findByName(roleName)
             .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + roleName));
 
@@ -181,3 +182,5 @@ public class UserService {
     }
 }
 }
+
+ 

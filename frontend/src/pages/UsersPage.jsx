@@ -1,7 +1,19 @@
+<<<<<<< HEAD
 import { useEffect, useState, useCallback } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { usersApi } from '../api/usersApi';
+=======
+import { useEffect, useState } from 'react';
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+
+const MOCK_USERS = [
+  { id: 1, name: 'Super Administrator', username: 'admin',   email: 'admin@example.com',   role: 'ROLE_ADMIN',   status: 'Active' },
+  { id: 2, name: 'General Manager',     username: 'manager', email: 'manager@example.com', role: 'ROLE_MANAGER', status: 'Active' },
+  { id: 3, name: 'Standard User',       username: 'user',    email: 'user@example.com',    role: 'ROLE_USER',    status: 'Active' },
+];
+>>>>>>> 9758ada0b7d3cbebb454b66b10c5c89ab74ffa95
 
 const roleColor = (role) => {
   if (role === 'ROLE_ADMIN')   return 'badge-orange';
@@ -9,6 +21,7 @@ const roleColor = (role) => {
   return 'badge-gray';
 };
 
+<<<<<<< HEAD
 const extractRole = (u) => {
   if (u.role) return u.role;
   if (Array.isArray(u.roles) && u.roles.length > 0) return u.roles[0];
@@ -169,12 +182,98 @@ export const UsersPage = () => {
       )}
 
       {/* Header */}
+=======
+export const UsersPage = () => {
+  const { loading, hasPermission } = useAuth();
+  const [users, setUsers]   = useState([]);
+  const [search, setSearch] = useState('');
+  const [editingUser, setEditingUser] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+
+  const [newUser, setNewUser] = useState({
+  username: '',
+  email: '',
+  password: '',
+  role: 'ROLE_USER'
+  });
+
+  // All hooks first, THEN conditional return
+  useEffect(() => {
+    setUsers(MOCK_USERS);
+  }, []);
+
+  if (loading) return null;
+  if (!hasPermission('user:read')) return <Navigate to="/dashboard" replace />;
+
+  const canEdit = hasPermission('user:write');
+  const canDelete = hasPermission('user:delete');
+
+
+  const filtered = users.filter(
+    (u) =>
+      u.name.toLowerCase().includes(search.toLowerCase()) ||
+      u.email.toLowerCase().includes(search.toLowerCase()) ||
+      u.username.toLowerCase().includes(search.toLowerCase())
+  );
+  const handleCreateUser = () => {
+  if (!newUser.username || !newUser.email) {
+    alert('Please fill all fields');
+    return;
+  }
+
+  const user = {
+    id: users.length + 1,
+    name: newUser.username,
+    username: newUser.username,
+    email: newUser.email,
+    role: newUser.role,
+    status: 'Active'
+  };
+
+  setUsers([...users, user]);
+
+  setNewUser({
+    username: '',
+    email: '',
+    password: '',
+    role: 'ROLE_USER'
+  });
+
+  setShowAddModal(false);
+};
+
+const handleDeleteUser = (id) => {
+  if (window.confirm('Delete this user?')) {
+    setUsers(users.filter(user => user.id !== id));
+  }
+};
+
+const handleEditUser = (user) => {
+  setEditingUser({ ...user });
+  setShowEditModal(true);
+};
+
+const handleUpdateUser = () => {
+  setUsers(
+    users.map(user =>
+      user.id === editingUser.id ? editingUser : user
+    )
+  );
+
+  setShowEditModal(false);
+  setEditingUser(null);
+};
+  return (
+    <div className="animate-fade-in">
+>>>>>>> 9758ada0b7d3cbebb454b66b10c5c89ab74ffa95
       <div className="page-header">
         <div className="page-header-left">
           <h1 className="page-title">
             User <span className="page-title-accent">Management</span>
           </h1>
           <p className="page-subtitle">
+<<<<<<< HEAD
             {canEdit ? 'Manage users, assign roles, and review account status' : 'View team members and their assigned roles'}
           </p>
         </div>
@@ -184,19 +283,40 @@ export const UsersPage = () => {
       </div>
 
       {/* Search */}
+=======
+            {canEdit
+              ? 'Manage users, assign roles, and review account status'
+              : 'View team members and their assigned roles'}
+          </p>
+        </div>
+        {canEdit && (
+          <button id="add-user-btn"  onClick={() => setShowAddModal(true)} className="btn btn-primary">+ Add User</button>
+        )}
+      </div>
+
+>>>>>>> 9758ada0b7d3cbebb454b66b10c5c89ab74ffa95
       <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
         <div className="search-bar" style={{ flex: 1, maxWidth: 340 }}>
           <span className="search-bar-icon">🔍</span>
           <input
+<<<<<<< HEAD
+=======
+            id="users-search"
+>>>>>>> 9758ada0b7d3cbebb454b66b10c5c89ab74ffa95
             type="search"
             className="form-control"
             placeholder="Search users…"
             value={search}
+<<<<<<< HEAD
             onChange={e => setSearch(e.target.value)}
+=======
+            onChange={(e) => setSearch(e.target.value)}
+>>>>>>> 9758ada0b7d3cbebb454b66b10c5c89ab74ffa95
           />
         </div>
       </div>
 
+<<<<<<< HEAD
       {/* Table */}
       <div className="table-wrap">
         {fetching ? (
@@ -264,6 +384,84 @@ export const UsersPage = () => {
             </tbody>
           </table>
         )}
+=======
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Name</th>
+              <th>Username</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Status</th>
+              {(canEdit || canDelete) && <th>Actions</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 ? (
+              <tr>
+                <td colSpan={canEdit ? 7 : 6}>
+                  <div className="empty-state">
+                    <div className="empty-icon">👤</div>
+                    <div className="empty-title">No users found</div>
+                    <div className="empty-text">
+                      {search ? 'Try a different search term.' : 'No users available.'}
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              filtered.map((u) => (
+                <tr key={u.id}>
+                  <td style={{ color: 'var(--color-text-faint)' }}>{u.id}</td>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{
+                        width: 32, height: 32, borderRadius: '50%',
+                        background: 'var(--color-primary-subtle)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 13, fontWeight: 700, color: 'var(--color-primary)', flexShrink: 0,
+                      }}>
+                        {u.name.slice(0, 2).toUpperCase()}
+                      </div>
+                      <span style={{ fontWeight: 600 }}>{u.name}</span>
+                    </div>
+                  </td>
+                  <td><code style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>@{u.username}</code></td>
+                  <td style={{ color: 'var(--color-text-muted)' }}>{u.email}</td>
+                  <td><span className={`badge ${roleColor(u.role)}`}>{u.role.replace('ROLE_', '')}</span></td>
+                  <td><span className="badge badge-green">● {u.status}</span></td>
+                  {(canEdit || canDelete) && (
+                    <td>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        {canEdit && (
+  <button
+          className="btn btn-secondary btn-sm"
+          title="Edit"
+          onClick={() => handleEditUser(u)}
+        >
+          ✏️
+   </button>
+      )}
+                        {canDelete && (
+  <button
+        className="btn btn-danger btn-sm"
+        title="Delete"
+        onClick={() => handleDeleteUser(u.id)}
+      >
+        🗑️
+  </button>
+    )}
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+>>>>>>> 9758ada0b7d3cbebb454b66b10c5c89ab74ffa95
       </div>
 
       {!canEdit && !canDelete && (
@@ -278,6 +476,7 @@ export const UsersPage = () => {
           <span>ℹ️</span> You have read-only access. Contact an admin to make changes.
         </div>
       )}
+<<<<<<< HEAD
 
       {/* ── ADD MODAL ── */}
       {showAdd && (
@@ -385,6 +584,134 @@ export const UsersPage = () => {
         </div>
       )}
 
+=======
+      {showAddModal && (
+      <div className="modal">
+        <div className="modal-content">
+
+        <h3>Create User</h3>
+
+        <input
+          placeholder="Username"
+          value={newUser.username}
+          onChange={(e) =>
+            setNewUser({
+              ...newUser,
+              username: e.target.value
+            })
+          }
+        />
+
+        <input
+          placeholder="Email"
+          value={newUser.email}
+          onChange={(e) =>
+            setNewUser({
+              ...newUser,
+              email: e.target.value
+            })
+          }
+        />
+
+        <input
+          type="password"
+          placeholder="Password"
+          value={newUser.password}
+          onChange={(e) =>
+            setNewUser({
+              ...newUser,
+              password: e.target.value
+            })
+          }
+        />
+
+        <select
+          value={newUser.role}
+          onChange={(e) =>
+            setNewUser({
+              ...newUser,
+              role: e.target.value
+            })
+          }
+        >
+          <option value="ROLE_USER">User</option>
+          <option value="ROLE_MANAGER">Manager</option>
+          <option value="ROLE_ADMIN">Admin</option>
+        </select>
+
+        <button className="btn btn-primary"
+  onClick={handleCreateUser}>Save</button>
+
+        <button
+          onClick={() => setShowAddModal(false)}
+        >
+          Cancel
+        </button>
+
+      </div>
+      </div>
+    )}
+    {showEditModal && editingUser && (
+  <div className="modal">
+    <div className="modal-content">
+
+      <h3>Edit User</h3>
+
+      <input
+        value={editingUser.username}
+        onChange={(e) =>
+          setEditingUser({
+            ...editingUser,
+            username: e.target.value,
+            name: e.target.value
+          })
+        }
+      />
+
+      <input
+        value={editingUser.email}
+        onChange={(e) =>
+          setEditingUser({
+            ...editingUser,
+            email: e.target.value
+          })
+        }
+      />
+
+      <select
+        value={editingUser.role}
+        onChange={(e) =>
+          setEditingUser({
+            ...editingUser,
+            role: e.target.value
+          })
+        }
+      >
+        <option value="ROLE_USER">User</option>
+        <option value="ROLE_MANAGER">Manager</option>
+        <option value="ROLE_ADMIN">Admin</option>
+      </select>
+
+      <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+        <button
+          className="btn btn-primary"
+          onClick={handleUpdateUser}
+        >
+          Update
+        </button>
+
+        <button
+          className="btn btn-secondary"
+          onClick={() => setShowEditModal(false)}
+        >
+          Cancel
+        </button>
+      </div>
+
+    </div>
+  </div>
+)}
+>>>>>>> 9758ada0b7d3cbebb454b66b10c5c89ab74ffa95
     </div>
   );
 };
