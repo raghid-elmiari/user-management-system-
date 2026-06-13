@@ -16,5 +16,8 @@ public class CreateUserRequest {
 
     @NotBlank
     private String password;
+
+    private String name;      
+    private String roleName;  
 }
 
