@@ -1,27 +1,14 @@
-<<<<<<< HEAD
 import { useEffect, useState, useCallback } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { usersApi } from '../api/usersApi';
-=======
-import { useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-
-const MOCK_USERS = [
-  { id: 1, name: 'Super Administrator', username: 'admin',   email: 'admin@example.com',   role: 'ROLE_ADMIN',   status: 'Active' },
-  { id: 2, name: 'General Manager',     username: 'manager', email: 'manager@example.com', role: 'ROLE_MANAGER', status: 'Active' },
-  { id: 3, name: 'Standard User',       username: 'user',    email: 'user@example.com',    role: 'ROLE_USER',    status: 'Active' },
-];
->>>>>>> 9758ada0b7d3cbebb454b66b10c5c89ab74ffa95
 
 const roleColor = (role) => {
-  if (role === 'ROLE_ADMIN')   return 'badge-orange';
+  if (role === 'ROLE_ADMIN') return 'badge-orange';
   if (role === 'ROLE_MANAGER') return 'badge-blue';
   return 'badge-gray';
 };
 
-<<<<<<< HEAD
 const extractRole = (u) => {
   if (u.role) return u.role;
   if (Array.isArray(u.roles) && u.roles.length > 0) return u.roles[0];
@@ -31,27 +18,27 @@ const extractRole = (u) => {
 export const UsersPage = () => {
   const { loading, hasPermission, hasRole } = useAuth();
 
-  const [users,    setUsers]    = useState([]);
-  const [search,   setSearch]   = useState('');
+  const [users, setUsers] = useState([]);
+  const [search, setSearch] = useState('');
   const [fetching, setFetching] = useState(true);
-  const [toast,    setToast]    = useState(null);
-  const [saving,   setSaving]   = useState(false);
+  const [toast, setToast] = useState(null);
+  const [saving, setSaving] = useState(false);
 
   // Add modal
-  const [showAdd,  setShowAdd]  = useState(false);
-  const [newUser,  setNewUser]  = useState({ name: '', username: '', email: '', password: '', roleName: 'ROLE_USER' });
+  const [showAdd, setShowAdd] = useState(false);
+  const [newUser, setNewUser] = useState({ name: '', username: '', email: '', password: '', roleName: 'ROLE_USER' });
 
   // Edit modal
   const [showEdit, setShowEdit] = useState(false);
   const [editUser, setEditUser] = useState(null);
 
   // Delete confirm
-  const [showDelete,  setShowDelete]  = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
-  const canEdit   = hasPermission('user:write');
+  const canEdit = hasPermission('user:write');
   const canDelete = hasPermission('user:delete');
-  const isAdmin   = hasRole('ROLE_ADMIN');
+  const isAdmin = hasRole('ROLE_ADMIN');
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
@@ -91,9 +78,9 @@ export const UsersPage = () => {
     setSaving(true);
     try {
       const res = await usersApi.create({
-        name:     newUser.name || newUser.username,
+        name: newUser.name || newUser.username,
         username: newUser.username,
-        email:    newUser.email,
+        email: newUser.email,
         password: newUser.password,
         roleName: newUser.roleName,
       });
@@ -123,9 +110,9 @@ export const UsersPage = () => {
     setSaving(true);
     try {
       const payload = {
-        name:     editUser.name,
+        name: editUser.name,
         username: editUser.username,
-        email:    editUser.email,
+        email: editUser.email,
         roleName: editUser.roleName,
       };
       if (editUser.password) payload.password = editUser.password;
@@ -166,15 +153,14 @@ export const UsersPage = () => {
 
   return (
     <div className="animate-fade-in">
-
       {/* Toast */}
       {toast && (
         <div style={{
           position: 'fixed', top: 20, right: 20, zIndex: 9999,
           padding: '12px 20px', borderRadius: 8, fontWeight: 600, fontSize: 14,
           background: toast.type === 'error' ? '#fee2e2' : '#d1fae5',
-          color:      toast.type === 'error' ? '#991b1b' : '#065f46',
-          border:     `1px solid ${toast.type === 'error' ? '#fca5a5' : '#6ee7b7'}`,
+          color: toast.type === 'error' ? '#991b1b' : '#065f46',
+          border: `1px solid ${toast.type === 'error' ? '#fca5a5' : '#6ee7b7'}`,
           boxShadow: '0 4px 12px rgba(0,0,0,.12)',
         }}>
           {toast.type === 'error' ? '❌' : '✅'} {toast.msg}
@@ -182,98 +168,12 @@ export const UsersPage = () => {
       )}
 
       {/* Header */}
-=======
-export const UsersPage = () => {
-  const { loading, hasPermission } = useAuth();
-  const [users, setUsers]   = useState([]);
-  const [search, setSearch] = useState('');
-  const [editingUser, setEditingUser] = useState(null);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showAddModal, setShowAddModal] = useState(false);
-
-  const [newUser, setNewUser] = useState({
-  username: '',
-  email: '',
-  password: '',
-  role: 'ROLE_USER'
-  });
-
-  // All hooks first, THEN conditional return
-  useEffect(() => {
-    setUsers(MOCK_USERS);
-  }, []);
-
-  if (loading) return null;
-  if (!hasPermission('user:read')) return <Navigate to="/dashboard" replace />;
-
-  const canEdit = hasPermission('user:write');
-  const canDelete = hasPermission('user:delete');
-
-
-  const filtered = users.filter(
-    (u) =>
-      u.name.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase()) ||
-      u.username.toLowerCase().includes(search.toLowerCase())
-  );
-  const handleCreateUser = () => {
-  if (!newUser.username || !newUser.email) {
-    alert('Please fill all fields');
-    return;
-  }
-
-  const user = {
-    id: users.length + 1,
-    name: newUser.username,
-    username: newUser.username,
-    email: newUser.email,
-    role: newUser.role,
-    status: 'Active'
-  };
-
-  setUsers([...users, user]);
-
-  setNewUser({
-    username: '',
-    email: '',
-    password: '',
-    role: 'ROLE_USER'
-  });
-
-  setShowAddModal(false);
-};
-
-const handleDeleteUser = (id) => {
-  if (window.confirm('Delete this user?')) {
-    setUsers(users.filter(user => user.id !== id));
-  }
-};
-
-const handleEditUser = (user) => {
-  setEditingUser({ ...user });
-  setShowEditModal(true);
-};
-
-const handleUpdateUser = () => {
-  setUsers(
-    users.map(user =>
-      user.id === editingUser.id ? editingUser : user
-    )
-  );
-
-  setShowEditModal(false);
-  setEditingUser(null);
-};
-  return (
-    <div className="animate-fade-in">
->>>>>>> 9758ada0b7d3cbebb454b66b10c5c89ab74ffa95
       <div className="page-header">
         <div className="page-header-left">
           <h1 className="page-title">
             User <span className="page-title-accent">Management</span>
           </h1>
           <p className="page-subtitle">
-<<<<<<< HEAD
             {canEdit ? 'Manage users, assign roles, and review account status' : 'View team members and their assigned roles'}
           </p>
         </div>
@@ -283,40 +183,20 @@ const handleUpdateUser = () => {
       </div>
 
       {/* Search */}
-=======
-            {canEdit
-              ? 'Manage users, assign roles, and review account status'
-              : 'View team members and their assigned roles'}
-          </p>
-        </div>
-        {canEdit && (
-          <button id="add-user-btn"  onClick={() => setShowAddModal(true)} className="btn btn-primary">+ Add User</button>
-        )}
-      </div>
-
->>>>>>> 9758ada0b7d3cbebb454b66b10c5c89ab74ffa95
       <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
         <div className="search-bar" style={{ flex: 1, maxWidth: 340 }}>
           <span className="search-bar-icon">🔍</span>
           <input
-<<<<<<< HEAD
-=======
             id="users-search"
->>>>>>> 9758ada0b7d3cbebb454b66b10c5c89ab74ffa95
             type="search"
             className="form-control"
             placeholder="Search users…"
             value={search}
-<<<<<<< HEAD
-            onChange={e => setSearch(e.target.value)}
-=======
             onChange={(e) => setSearch(e.target.value)}
->>>>>>> 9758ada0b7d3cbebb454b66b10c5c89ab74ffa95
           />
         </div>
       </div>
 
-<<<<<<< HEAD
       {/* Table */}
       <div className="table-wrap">
         {fetching ? (
@@ -373,8 +253,8 @@ const handleUpdateUser = () => {
                     {(canEdit || canDelete) && (
                       <td>
                         <div style={{ display: 'flex', gap: 6 }}>
-                          {canEdit   && <button className="btn btn-secondary btn-sm" onClick={() => openEdit(u)}   title="Edit">✏️</button>}
-                          {canDelete && <button className="btn btn-danger btn-sm"    onClick={() => openDelete(u)} title="Delete">🗑️</button>}
+                          {canEdit && <button className="btn btn-secondary btn-sm" onClick={() => openEdit(u)} title="Edit">✏️</button>}
+                          {canDelete && <button className="btn btn-danger btn-sm" onClick={() => openDelete(u)} title="Delete">🗑️</button>}
                         </div>
                       </td>
                     )}
@@ -384,84 +264,6 @@ const handleUpdateUser = () => {
             </tbody>
           </table>
         )}
-=======
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Name</th>
-              <th>Username</th>
-              <th>Email</th>
-              <th>Role</th>
-              <th>Status</th>
-              {(canEdit || canDelete) && <th>Actions</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={canEdit ? 7 : 6}>
-                  <div className="empty-state">
-                    <div className="empty-icon">👤</div>
-                    <div className="empty-title">No users found</div>
-                    <div className="empty-text">
-                      {search ? 'Try a different search term.' : 'No users available.'}
-                    </div>
-                  </div>
-                </td>
-              </tr>
-            ) : (
-              filtered.map((u) => (
-                <tr key={u.id}>
-                  <td style={{ color: 'var(--color-text-faint)' }}>{u.id}</td>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{
-                        width: 32, height: 32, borderRadius: '50%',
-                        background: 'var(--color-primary-subtle)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 13, fontWeight: 700, color: 'var(--color-primary)', flexShrink: 0,
-                      }}>
-                        {u.name.slice(0, 2).toUpperCase()}
-                      </div>
-                      <span style={{ fontWeight: 600 }}>{u.name}</span>
-                    </div>
-                  </td>
-                  <td><code style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>@{u.username}</code></td>
-                  <td style={{ color: 'var(--color-text-muted)' }}>{u.email}</td>
-                  <td><span className={`badge ${roleColor(u.role)}`}>{u.role.replace('ROLE_', '')}</span></td>
-                  <td><span className="badge badge-green">● {u.status}</span></td>
-                  {(canEdit || canDelete) && (
-                    <td>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        {canEdit && (
-  <button
-          className="btn btn-secondary btn-sm"
-          title="Edit"
-          onClick={() => handleEditUser(u)}
-        >
-          ✏️
-   </button>
-      )}
-                        {canDelete && (
-  <button
-        className="btn btn-danger btn-sm"
-        title="Delete"
-        onClick={() => handleDeleteUser(u.id)}
-      >
-        🗑️
-  </button>
-    )}
-                      </div>
-                    </td>
-                  )}
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
->>>>>>> 9758ada0b7d3cbebb454b66b10c5c89ab74ffa95
       </div>
 
       {!canEdit && !canDelete && (
@@ -476,242 +278,96 @@ const handleUpdateUser = () => {
           <span>ℹ️</span> You have read-only access. Contact an admin to make changes.
         </div>
       )}
-<<<<<<< HEAD
 
-      {/* ── ADD MODAL ── */}
+      {/* --- ADD MODAL --- */}
       {showAdd && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center' }}>
-          <div style={{ background:'var(--color-surface)', borderRadius:12, padding:28, width:420, maxWidth:'90vw', boxShadow:'0 8px 32px rgba(0,0,0,0.2)' }}>
-            <h2 style={{ marginBottom:20 }}>Create New User</h2>
-
-            <div className="form-group" style={{ marginBottom:14 }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'var(--color-surface)', borderRadius: 12, padding: 28, width: 420, maxWidth: '90vw', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
+            <h2 style={{ marginBottom: 20 }}>Create New User</h2>
+            <div className="form-group" style={{ marginBottom: 14 }}>
               <label className="form-label">Full Name</label>
-              <input className="form-control" placeholder="e.g. Jane Smith"
-                value={newUser.name} onChange={e => setNewUser({...newUser, name: e.target.value})} />
+              <input className="form-control" placeholder="e.g. Jane Smith" value={newUser.name} onChange={e => setNewUser({ ...newUser, name: e.target.value })} />
             </div>
-            <div className="form-group" style={{ marginBottom:14 }}>
+            <div className="form-group" style={{ marginBottom: 14 }}>
               <label className="form-label">Username *</label>
-              <input className="form-control" placeholder="e.g. jsmith"
-                value={newUser.username} onChange={e => setNewUser({...newUser, username: e.target.value})} />
+              <input className="form-control" placeholder="e.g. jsmith" value={newUser.username} onChange={e => setNewUser({ ...newUser, username: e.target.value })} />
             </div>
-            <div className="form-group" style={{ marginBottom:14 }}>
+            <div className="form-group" style={{ marginBottom: 14 }}>
               <label className="form-label">Email *</label>
-              <input className="form-control" type="email" placeholder="e.g. jane@company.com"
-                value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} />
+              <input className="form-control" type="email" placeholder="e.g. jane@company.com" value={newUser.email} onChange={e => setNewUser({ ...newUser, email: e.target.value })} />
             </div>
-            <div className="form-group" style={{ marginBottom:14 }}>
+            <div className="form-group" style={{ marginBottom: 14 }}>
               <label className="form-label">Password *</label>
-              <input className="form-control" type="password"
-                value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} />
+              <input className="form-control" type="password" value={newUser.password} onChange={e => setNewUser({ ...newUser, password: e.target.value })} />
             </div>
-            <div className="form-group" style={{ marginBottom:20 }}>
+            <div className="form-group" style={{ marginBottom: 20 }}>
               <label className="form-label">Role</label>
-              <select className="form-control" value={newUser.roleName} onChange={e => setNewUser({...newUser, roleName: e.target.value})}>
+              <select className="form-control" value={newUser.roleName} onChange={e => setNewUser({ ...newUser, roleName: e.target.value })}>
                 <option value="ROLE_USER">User</option>
                 <option value="ROLE_MANAGER">Manager</option>
                 {isAdmin && <option value="ROLE_ADMIN">Admin</option>}
               </select>
             </div>
-            <div style={{ display:'flex', gap:10, justifyContent:'flex-end' }}>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button className="btn btn-secondary" onClick={() => setShowAdd(false)} disabled={saving}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleCreate} disabled={saving}>
-                {saving ? 'Saving…' : 'Create User'}
-              </button>
+              <button className="btn btn-primary" onClick={handleCreate} disabled={saving}>{saving ? 'Saving…' : 'Create User'}</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── EDIT MODAL ── */}
+      {/* --- EDIT MODAL --- */}
       {showEdit && editUser && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center' }}>
-          <div style={{ background:'var(--color-surface)', borderRadius:12, padding:28, width:420, maxWidth:'90vw', boxShadow:'0 8px 32px rgba(0,0,0,0.2)' }}>
-            <h2 style={{ marginBottom:20 }}>Edit User — {editUser.name || editUser.username}</h2>
-
-            <div className="form-group" style={{ marginBottom:14 }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'var(--color-surface)', borderRadius: 12, padding: 28, width: 420, maxWidth: '90vw', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
+            <h2 style={{ marginBottom: 20 }}>Edit User — {editUser.name || editUser.username}</h2>
+            <div className="form-group" style={{ marginBottom: 14 }}>
               <label className="form-label">Full Name</label>
-              <input className="form-control"
-                value={editUser.name} onChange={e => setEditUser({...editUser, name: e.target.value})} />
+              <input className="form-control" value={editUser.name} onChange={e => setEditUser({ ...editUser, name: e.target.value })} />
             </div>
-            <div className="form-group" style={{ marginBottom:14 }}>
+            <div className="form-group" style={{ marginBottom: 14 }}>
               <label className="form-label">Username</label>
-              <input className="form-control"
-                value={editUser.username} onChange={e => setEditUser({...editUser, username: e.target.value})} />
+              <input className="form-control" value={editUser.username} onChange={e => setEditUser({ ...editUser, username: e.target.value })} />
             </div>
-            <div className="form-group" style={{ marginBottom:14 }}>
+            <div className="form-group" style={{ marginBottom: 14 }}>
               <label className="form-label">Email</label>
-              <input className="form-control" type="email"
-                value={editUser.email} onChange={e => setEditUser({...editUser, email: e.target.value})} />
+              <input className="form-control" type="email" value={editUser.email} onChange={e => setEditUser({ ...editUser, email: e.target.value })} />
             </div>
-            <div className="form-group" style={{ marginBottom:14 }}>
-              <label className="form-label">New Password <span style={{ fontSize:12, color:'var(--color-text-faint)' }}>(leave blank to keep current)</span></label>
-              <input className="form-control" type="password" placeholder="Leave blank to keep unchanged"
-                value={editUser.password} onChange={e => setEditUser({...editUser, password: e.target.value})} />
+            <div className="form-group" style={{ marginBottom: 14 }}>
+              <label className="form-label">New Password <span style={{ fontSize: 12, color: 'var(--color-text-faint)' }}>(leave blank to keep current)</span></label>
+              <input className="form-control" type="password" placeholder="Leave blank to keep unchanged" value={editUser.password} onChange={e => setEditUser({ ...editUser, password: e.target.value })} />
             </div>
-            <div className="form-group" style={{ marginBottom:20 }}>
+            <div className="form-group" style={{ marginBottom: 20 }}>
               <label className="form-label">Role</label>
-              <select className="form-control" value={editUser.roleName} onChange={e => setEditUser({...editUser, roleName: e.target.value})}>
+              <select className="form-control" value={editUser.roleName} onChange={e => setEditUser({ ...editUser, roleName: e.target.value })}>
                 <option value="ROLE_USER">User</option>
                 <option value="ROLE_MANAGER">Manager</option>
                 {isAdmin && <option value="ROLE_ADMIN">Admin</option>}
               </select>
             </div>
-            <div style={{ display:'flex', gap:10, justifyContent:'flex-end' }}>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button className="btn btn-secondary" onClick={() => setShowEdit(false)} disabled={saving}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleUpdate} disabled={saving}>
-                {saving ? 'Saving…' : 'Save Changes'}
-              </button>
+              <button className="btn btn-primary" onClick={handleUpdate} disabled={saving}>{saving ? 'Saving…' : 'Save Changes'}</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── DELETE CONFIRM ── */}
+      {/* --- DELETE CONFIRM --- */}
       {showDelete && deleteTarget && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center' }}>
-          <div style={{ background:'var(--color-surface)', borderRadius:12, padding:28, width:380, maxWidth:'90vw', boxShadow:'0 8px 32px rgba(0,0,0,0.2)' }}>
-            <h2 style={{ marginBottom:12 }}>Delete User</h2>
-            <p style={{ color:'var(--color-text-muted)', marginBottom:24 }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'var(--color-surface)', borderRadius: 12, padding: 28, width: 380, maxWidth: '90vw', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
+            <h2 style={{ marginBottom: 12 }}>Delete User</h2>
+            <p style={{ color: 'var(--color-text-muted)', marginBottom: 24 }}>
               Are you sure you want to delete <strong>{deleteTarget.name || deleteTarget.username}</strong>? This cannot be undone.
             </p>
-            <div style={{ display:'flex', gap:10, justifyContent:'flex-end' }}>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button className="btn btn-secondary" onClick={() => setShowDelete(false)} disabled={saving}>Cancel</button>
-              <button className="btn btn-danger" onClick={handleDelete} disabled={saving}>
-                {saving ? 'Deleting…' : 'Delete'}
-              </button>
+              <button className="btn btn-danger" onClick={handleDelete} disabled={saving}>{saving ? 'Deleting…' : 'Delete'}</button>
             </div>
           </div>
         </div>
       )}
-
-=======
-      {showAddModal && (
-      <div className="modal">
-        <div className="modal-content">
-
-        <h3>Create User</h3>
-
-        <input
-          placeholder="Username"
-          value={newUser.username}
-          onChange={(e) =>
-            setNewUser({
-              ...newUser,
-              username: e.target.value
-            })
-          }
-        />
-
-        <input
-          placeholder="Email"
-          value={newUser.email}
-          onChange={(e) =>
-            setNewUser({
-              ...newUser,
-              email: e.target.value
-            })
-          }
-        />
-
-        <input
-          type="password"
-          placeholder="Password"
-          value={newUser.password}
-          onChange={(e) =>
-            setNewUser({
-              ...newUser,
-              password: e.target.value
-            })
-          }
-        />
-
-        <select
-          value={newUser.role}
-          onChange={(e) =>
-            setNewUser({
-              ...newUser,
-              role: e.target.value
-            })
-          }
-        >
-          <option value="ROLE_USER">User</option>
-          <option value="ROLE_MANAGER">Manager</option>
-          <option value="ROLE_ADMIN">Admin</option>
-        </select>
-
-        <button className="btn btn-primary"
-  onClick={handleCreateUser}>Save</button>
-
-        <button
-          onClick={() => setShowAddModal(false)}
-        >
-          Cancel
-        </button>
-
-      </div>
-      </div>
-    )}
-    {showEditModal && editingUser && (
-  <div className="modal">
-    <div className="modal-content">
-
-      <h3>Edit User</h3>
-
-      <input
-        value={editingUser.username}
-        onChange={(e) =>
-          setEditingUser({
-            ...editingUser,
-            username: e.target.value,
-            name: e.target.value
-          })
-        }
-      />
-
-      <input
-        value={editingUser.email}
-        onChange={(e) =>
-          setEditingUser({
-            ...editingUser,
-            email: e.target.value
-          })
-        }
-      />
-
-      <select
-        value={editingUser.role}
-        onChange={(e) =>
-          setEditingUser({
-            ...editingUser,
-            role: e.target.value
-          })
-        }
-      >
-        <option value="ROLE_USER">User</option>
-        <option value="ROLE_MANAGER">Manager</option>
-        <option value="ROLE_ADMIN">Admin</option>
-      </select>
-
-      <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-        <button
-          className="btn btn-primary"
-          onClick={handleUpdateUser}
-        >
-          Update
-        </button>
-
-        <button
-          className="btn btn-secondary"
-          onClick={() => setShowEditModal(false)}
-        >
-          Cancel
-        </button>
-      </div>
-
-    </div>
-  </div>
-)}
->>>>>>> 9758ada0b7d3cbebb454b66b10c5c89ab74ffa95
     </div>
   );
 };
