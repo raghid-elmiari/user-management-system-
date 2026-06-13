@@ -14,16 +14,14 @@ const ALL_PERMISSIONS = [
   { id: 'permission:read', resource: 'permission', action: 'read', description: 'View permission definitions' },
   { id: 'permission:write', resource: 'permission', action: 'write', description: 'Create and update permissions' },
   { id: 'hierarchy:read', resource: 'hierarchy', action: 'read', description: 'View role hierarchy tree' },
-
 ];
 
-// Default permission assignments per role
+// Default permission assignments per role (fallback only)
 const DEFAULT_ROLE_PERMISSIONS = {
   ROLE_ADMIN: [
     'user:read', 'user:write', 'user:delete',
     'role:read', 'role:write', 'role:delete',
     'permission:read', 'permission:write',
-
   ],
   ROLE_MANAGER: [
     'user:read', 'user:write',
@@ -37,65 +35,91 @@ const DEFAULT_ROLE_PERMISSIONS = {
 
 const ACTION_COLORS = { read: 'badge-blue', write: 'badge-orange', delete: 'badge-red' };
 
-const ROLES = ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_USER'];
+// Generate a consistent color/icon for dynamic roles
+const ROLE_COLOR_PALETTE = [
+  { color: 'var(--orange-500)', bg: 'var(--color-primary-subtle)', icon: '👑' },
+  { color: 'var(--color-info)', bg: 'var(--color-info-subtle)', icon: '🧑‍💼' },
+  { color: 'var(--color-success)', bg: 'var(--color-success-subtle)', icon: '👤' },
+  { color: 'var(--color-warning)', bg: 'var(--color-warning-subtle)', icon: '🔧' },
+  { color: 'var(--color-error)', bg: 'var(--color-error-subtle)', icon: '🛡️' },
+];
 
-const ROLE_META = {
+const STATIC_ROLE_META = {
   ROLE_ADMIN: { label: 'Admin', color: 'var(--orange-500)', bg: 'var(--color-primary-subtle)', icon: '👑' },
   ROLE_MANAGER: { label: 'Manager', color: 'var(--color-info)', bg: 'var(--color-info-subtle)', icon: '🧑‍💼' },
   ROLE_USER: { label: 'User', color: 'var(--color-success)', bg: 'var(--color-success-subtle)', icon: '👤' },
 };
 
+const getRoleMeta = (roleName, index) => {
+  if (STATIC_ROLE_META[roleName]) return STATIC_ROLE_META[roleName];
+  const palette = ROLE_COLOR_PALETTE[index % ROLE_COLOR_PALETTE.length];
+  const label = roleName.replace(/^ROLE_/, '');
+  return { label, ...palette };
+};
+
 export const PermissionsPage = () => {
   const { loading, hasPermission, refreshCurrentUser, applyRolePermissions } = useAuth();
 
-  const [rolePermissions, setRolePermissions] = useState(DEFAULT_ROLE_PERMISSIONS);
-  const [selectedRole, setSelectedRole] = useState('ROLE_MANAGER');
+  const [roles, setRoles] = useState([]); // dynamic list from backend
+  const [rolePermissions, setRolePermissions] = useState({});
+  const [selectedRole, setSelectedRole] = useState(null);
   const [dirty, setDirty] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [filterResource, setFilterResource] = useState('');
+  const [pageLoading, setPageLoading] = useState(true);
 
   useEffect(() => {
     const loadPermissions = async () => {
       try {
         const response = await rolesApi.getAll();
+        const rolesData = response.data ?? [];
 
+        // Build permissions map — backend returns permissions as List<String> already
         const permissionsMap = {};
-
-        response.data.forEach(role => {
-          permissionsMap[role.name] =
-            role.permissions?.map(permission => permission.name) || [];
+        rolesData.forEach(role => {
+          permissionsMap[role.name] = Array.isArray(role.permissions)
+            ? role.permissions.map(p => (typeof p === 'string' ? p : p.name ?? p.id ?? ''))
+            : [];
         });
 
+        setRoles(rolesData);
         setRolePermissions(permissionsMap);
+
+        // Select first role by default
+        if (rolesData.length > 0) {
+          setSelectedRole(rolesData[0].name);
+        }
       } catch (error) {
         console.error('Failed to load permissions', error);
-        const response = await rolesApi.getAll();
-
-        console.log("ROLES:", response.data);
-        // fallback
+        // Fallback to defaults
+        const fallbackRoles = Object.keys(DEFAULT_ROLE_PERMISSIONS).map((name, i) => ({ id: i + 1, name }));
+        setRoles(fallbackRoles);
         setRolePermissions(DEFAULT_ROLE_PERMISSIONS);
+        setSelectedRole(fallbackRoles[0]?.name ?? null);
+      } finally {
+        setPageLoading(false);
       }
     };
 
     loadPermissions();
   }, []);
 
-  if (loading) return null;
+  if (loading || pageLoading) return null;
   if (!hasPermission('permission:read')) return <Navigate to="/dashboard" replace />;
 
   const canEdit = hasPermission('permission:write');
 
   const resources = [...new Set(ALL_PERMISSIONS.map(p => p.resource))];
 
-  const currentPerms = rolePermissions[selectedRole] ?? [];
+  const currentPerms = selectedRole ? (rolePermissions[selectedRole] ?? []) : [];
 
   const filtered = filterResource
     ? ALL_PERMISSIONS.filter(p => p.resource === filterResource)
     : ALL_PERMISSIONS;
 
   const toggle = (permId) => {
-    if (!canEdit) return;
+    if (!canEdit || !selectedRole) return;
 
     setRolePermissions(prev => {
       const existing = prev[selectedRole] ?? [];
@@ -109,7 +133,7 @@ export const PermissionsPage = () => {
   };
 
   const handleSave = async () => {
-    if (!canEdit) return;
+    if (!canEdit || !selectedRole) return;
 
     try {
       await rolesApi.updatePermissions(selectedRole, rolePermissions[selectedRole]);
@@ -122,21 +146,34 @@ export const PermissionsPage = () => {
     } catch (error) {
       console.error('Failed to save permissions', error);
       setSaveError('Could not save to the server. Check that the backend is running and the PUT /api/roles/{roleName}/permissions endpoint is available.');
-
     }
   };
 
-  const handleReset = () => {
-    if (!canEdit) return;
+  const handleReset = async () => {
+    if (!canEdit || !selectedRole) return;
 
-    setRolePermissions(prev => ({ ...prev, [selectedRole]: DEFAULT_ROLE_PERMISSIONS[selectedRole] }));
+    // Re-fetch from backend to restore true saved state
+    try {
+      const response = await rolesApi.getAll();
+      const rolesData = response.data ?? [];
+      const permissionsMap = {};
+      rolesData.forEach(role => {
+        permissionsMap[role.name] = Array.isArray(role.permissions)
+          ? role.permissions.map(p => (typeof p === 'string' ? p : p.name ?? p.id ?? ''))
+          : [];
+      });
+      setRolePermissions(permissionsMap);
+    } catch {
+      setRolePermissions(prev => ({ ...prev, [selectedRole]: DEFAULT_ROLE_PERMISSIONS[selectedRole] ?? [] }));
+    }
+
     setDirty(false);
     setSaved(false);
   };
 
   const allChecked = filtered.every(p => currentPerms.includes(p.id));
   const toggleAll = () => {
-    if (!canEdit) return;
+    if (!canEdit || !selectedRole) return;
 
     const filteredIds = filtered.map(p => p.id);
     setRolePermissions(prev => {
@@ -150,7 +187,8 @@ export const PermissionsPage = () => {
     setSaved(false);
   };
 
-  const meta = ROLE_META[selectedRole];
+  const selectedRoleIndex = roles.findIndex(r => r.name === selectedRole);
+  const meta = selectedRole ? getRoleMeta(selectedRole, selectedRoleIndex) : null;
 
   return (
     <div className="animate-fade-in">
@@ -190,7 +228,7 @@ export const PermissionsPage = () => {
           fontSize: 13, color: 'var(--color-success)',
           display: 'flex', gap: 8, alignItems: 'center',
         }}>
-          ✅ Permissions saved for {meta.label}
+          ✅ Permissions saved for {meta?.label}
         </div>
       )}
 
@@ -208,16 +246,16 @@ export const PermissionsPage = () => {
         </div>
       )}
 
-      {/* Role selector tabs */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 24 }}>
-        {ROLES.map(role => {
-          const m = ROLE_META[role];
-          const active = selectedRole === role;
-          const count = (rolePermissions[role] ?? []).length;
+      {/* Role selector tabs — dynamically built from backend roles */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 24, flexWrap: 'wrap' }}>
+        {roles.map((role, index) => {
+          const m = getRoleMeta(role.name, index);
+          const active = selectedRole === role.name;
+          const count = (rolePermissions[role.name] ?? []).length;
           return (
             <button
-              key={role}
-              onClick={() => { setSelectedRole(role); setDirty(false); setSaved(false); }}
+              key={role.name}
+              onClick={() => { setSelectedRole(role.name); setDirty(false); setSaved(false); }}
               style={{
                 display: 'flex', alignItems: 'center', gap: 8,
                 padding: '10px 18px',
@@ -249,34 +287,36 @@ export const PermissionsPage = () => {
       </div>
 
       {/* Active role summary */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '12px 16px',
-        background: meta.bg,
-        border: `1px solid ${meta.color}33`,
-        borderRadius: 'var(--radius-md)',
-        marginBottom: 20,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 22 }}>{meta.icon}</span>
-          <div>
-            <div style={{ fontWeight: 700, color: meta.color }}>{meta.label}</div>
-            <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
-              {currentPerms.length} of {ALL_PERMISSIONS.length} permissions granted
+      {meta && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '12px 16px',
+          background: meta.bg,
+          border: `1px solid ${meta.color}33`,
+          borderRadius: 'var(--radius-md)',
+          marginBottom: 20,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 22 }}>{meta.icon}</span>
+            <div>
+              <div style={{ fontWeight: 700, color: meta.color }}>{meta.label}</div>
+              <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
+                {currentPerms.length} of {ALL_PERMISSIONS.length} permissions granted
+              </div>
             </div>
           </div>
+          {/* Resource filter */}
+          <select
+            className="form-control"
+            style={{ maxWidth: 180 }}
+            value={filterResource}
+            onChange={e => setFilterResource(e.target.value)}
+          >
+            <option value="">All resources</option>
+            {resources.map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
         </div>
-        {/* Resource filter */}
-        <select
-          className="form-control"
-          style={{ maxWidth: 180 }}
-          value={filterResource}
-          onChange={e => setFilterResource(e.target.value)}
-        >
-          <option value="">All resources</option>
-          {resources.map(r => <option key={r} value={r}>{r}</option>)}
-        </select>
-      </div>
+      )}
 
       {/* Permissions table */}
       <div className="table-wrap">
@@ -307,7 +347,7 @@ export const PermissionsPage = () => {
                 <tr
                   key={p.id}
                   style={{
-                    background: granted ? `${meta.color}08` : 'transparent',
+                    background: granted ? `${meta?.color ?? '#000'}08` : 'transparent',
                     cursor: canEdit ? 'pointer' : 'default',
                     opacity: granted ? 1 : 0.6,
                   }}
@@ -326,7 +366,7 @@ export const PermissionsPage = () => {
                     <code style={{
                       background: 'var(--color-surface2)', padding: '2px 8px',
                       borderRadius: 4, fontSize: 13,
-                      color: granted ? meta.color : 'var(--color-text-muted)',
+                      color: granted ? (meta?.color ?? 'inherit') : 'var(--color-text-muted)',
                     }}>
                       {p.id}
                     </code>
