@@ -18,7 +18,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -27,11 +29,11 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class UserService {
 
-    private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
+    private final UserRepository     userRepository;
+    private final RoleRepository     roleRepository;
     private final UserRoleRepository userRoleRepository;
-    private final UserMapper userMapper;
-    private final PasswordEncoder passwordEncoder;
+    private final UserMapper         userMapper;
+    private final PasswordEncoder    passwordEncoder;
 
     @Transactional(readOnly = true)
     public List<UserResponse> getAllUsers() {
@@ -40,55 +42,46 @@ public class UserService {
                 .collect(Collectors.toList());
     }
 
-   @Transactional
-public UserResponse createUser(CreateUserRequest request) {
-    if (userRepository.findByEmail(request.getEmail()).isPresent()) {
-        throw new DuplicateResourceException("User already exists with email: " + request.getEmail());
-    }
-    
-    User user = User.builder()
-            .email(request.getEmail())
-            .username(request.getUsername())
-            .name(request.getUsername()) // Default name to username
-            .password(passwordEncoder.encode(request.getPassword()))
-            .active(true)
-            .emailVerified(true)  // ← CHANGED TO TRUE
-            .emailVerificationToken(null)  // ← CHANGED TO NULL
-            .build();
+    @Transactional
+    public UserResponse createUser(CreateUserRequest request) {
+        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+            throw new DuplicateResourceException("User already exists with email: " + request.getEmail());
+        }
+        if (userRepository.findByUsername(request.getUsername()).isPresent()) {
+            throw new DuplicateResourceException("User already exists with username: " + request.getUsername());
+        }
 
-    User saved = userRepository.save(user);
-
-    // Assign default USER role
-    roleRepository.findByName("ROLE_USER").ifPresent(role -> {
-        UserRoleId userRoleId = new UserRoleId(saved.getId(), role.getId());
-        UserRole userRole = UserRole.builder()
-                .id(userRoleId)
-                .user(saved)
-                .role(role)
-                .assignedAt(java.time.OffsetDateTime.now())
+        User user = User.builder()
+                .email(request.getEmail())
+                .username(request.getUsername())
+                .name(StringUtils.hasText(request.getName()) ? request.getName() : request.getUsername())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .active(true)
+                .emailVerified(true)
                 .build();
-        userRoleRepository.save(userRole);
-        saved.getUserRoles().add(userRole);
-    });
 
-    // Optional: Remove or comment out this mock email print since email is auto-verified
-    // System.out.println("==================================================");
-    // System.out.println("MOCK EMAIL VERIFICATION SENT TO: " + saved.getEmail());
-    // System.out.println("Verification Token: " + saved.getEmailVerificationToken());
-    // System.out.println("Verification URL: http://localhost:3000/verify-email?token=" + saved.getEmailVerificationToken());
-    // System.out.println("==================================================");
+        User saved = userRepository.save(user);
 
-    return userMapper.toResponse(saved);
-}
+        String roleName = StringUtils.hasText(request.getRoleName()) ? request.getRoleName() : "ROLE_USER";
+        assignRoleByName(saved, roleName);
+
+        return userMapper.toResponse(saved);
+    }
+
     @Transactional
     public UserResponse updateProfile(UUID userId, UpdateUserRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + userId));
 
-        // Check unique constraints
         userRepository.findByEmail(request.getEmail()).ifPresent(existing -> {
             if (!existing.getId().equals(userId)) {
                 throw new DuplicateResourceException("Email is already taken: " + request.getEmail());
+            }
+        });
+
+        userRepository.findByUsername(request.getUsername()).ifPresent(existing -> {
+            if (!existing.getId().equals(userId)) {
+                throw new DuplicateResourceException("Username is already taken: " + request.getUsername());
             }
         });
 
@@ -96,15 +89,31 @@ public UserResponse createUser(CreateUserRequest request) {
         user.setUsername(request.getUsername());
         user.setEmail(request.getEmail());
 
-        return userMapper.toResponse(userRepository.save(user));
+        if (StringUtils.hasText(request.getPassword())) {
+            user.setPassword(passwordEncoder.encode(request.getPassword()));
+        }
+
+        User saved = userRepository.save(user);
+
+        if (StringUtils.hasText(request.getRoleName())) {
+            userRoleRepository.deleteAllByUserId(saved.getId());
+            saved.getUserRoles().clear();
+            assignRoleByName(saved, request.getRoleName());
+        }
+
+        return userMapper.toResponse(saved);
     }
 
     @Transactional
     public UserResponse assignRole(UUID userId, AssignRoleRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + userId));
-        Role role = roleRepository.findById(request.getRoleId())
-                .orElseThrow(() -> new ResourceNotFoundException("Role not found with id " + request.getRoleId()));
+
+        Role role = (request.getRoleId() != null)
+                ? roleRepository.findById(request.getRoleId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Role not found with id " + request.getRoleId()))
+                : roleRepository.findByName(request.getRoleName())
+                        .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + request.getRoleName()));
 
         UserRoleId userRoleId = new UserRoleId(userId, role.getId());
         if (!userRoleRepository.existsById(userRoleId)) {
@@ -112,7 +121,7 @@ public UserResponse createUser(CreateUserRequest request) {
                     .id(userRoleId)
                     .user(user)
                     .role(role)
-                    .assignedAt(java.time.OffsetDateTime.now())
+                    .assignedAt(OffsetDateTime.now())
                     .build();
             userRoleRepository.save(userRole);
             user.getUserRoles().add(userRole);
@@ -125,7 +134,8 @@ public UserResponse createUser(CreateUserRequest request) {
     public UserResponse removeRole(UUID userId, UUID roleId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + userId));
-        Role role = roleRepository.findById(roleId)
+
+        roleRepository.findById(roleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found with id " + roleId));
 
         UserRoleId userRoleId = new UserRoleId(userId, roleId);
@@ -152,5 +162,23 @@ public UserResponse createUser(CreateUserRequest request) {
         }
         userRepository.deleteById(userId);
     }
-}
 
+    // ── private helper ────────────────────────────────────────────
+
+    private void assignRoleByName(User user, String roleName) {
+        Role role = roleRepository.findByName(roleName)
+                .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + roleName));
+
+        UserRoleId id = new UserRoleId(user.getId(), role.getId());
+        if (!userRoleRepository.existsById(id)) {
+            UserRole userRole = UserRole.builder()
+                    .id(id)
+                    .user(user)
+                    .role(role)
+                    .assignedAt(OffsetDateTime.now())
+                    .build();
+            userRoleRepository.save(userRole);
+            user.getUserRoles().add(userRole);
+        }
+    }
+}
