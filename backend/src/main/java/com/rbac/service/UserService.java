@@ -11,9 +11,11 @@ import com.rbac.dto.response.UserResponse;
 import com.rbac.exception.DuplicateResourceException;
 import com.rbac.exception.ResourceNotFoundException;
 import com.rbac.mapper.UserMapper;
+import com.rbac.repository.RefreshTokenRepository;
 import com.rbac.repository.RoleRepository;
 import com.rbac.repository.UserRepository;
 import com.rbac.repository.UserRoleRepository;
+import com.rbac.repository.RefreshTokenRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -25,10 +27,11 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+
 @Service
 @RequiredArgsConstructor
 public class UserService {
-
+    private final RefreshTokenRepository refreshTokenRepository;
     private final UserRepository     userRepository;
     private final RoleRepository     roleRepository;
     private final UserRoleRepository userRoleRepository;
@@ -96,9 +99,12 @@ public class UserService {
         User saved = userRepository.save(user);
 
         if (StringUtils.hasText(request.getRoleName())) {
-            userRoleRepository.deleteAllByUserId(saved.getId());
-            saved.getUserRoles().clear();
-            assignRoleByName(saved, request.getRoleName());
+        userRoleRepository.deleteAllByUserId(saved.getId());
+        saved.getUserRoles().clear();
+        assignRoleByName(saved, request.getRoleName());
+
+        // Force re-login
+        refreshTokenRepository.revokeAllByUserId(saved.getId());
         }
 
         return userMapper.toResponse(saved);
@@ -126,7 +132,7 @@ public class UserService {
             userRoleRepository.save(userRole);
             user.getUserRoles().add(userRole);
         }
-
+        refreshTokenRepository.revokeAllByUserId(userId);
         return userMapper.toResponse(user);
     }
 
@@ -143,7 +149,7 @@ public class UserService {
             userRoleRepository.delete(userRole);
             user.getUserRoles().remove(userRole);
         });
-
+        refreshTokenRepository.revokeAllByUserId(userId);
         return userMapper.toResponse(user);
     }
 

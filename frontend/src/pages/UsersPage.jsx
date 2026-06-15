@@ -140,7 +140,7 @@ export const UsersPage = () => {
       setUsers(prev => prev.map(u => u.id === editUser.id ? updated : u));
       setShowEdit(false);
       setEditUser(null);
-      showToast('User updated successfully');
+      showToast('User updated successfully. Active sessions were revoked and the user must sign in again.');
     } catch (err) {
       showToast(err?.response?.data?.message || 'Failed to update user', 'error');
     } finally {
