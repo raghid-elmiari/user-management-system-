@@ -1,8 +1,7 @@
 import api from './api';
 
- 
 export const usersApi = {
-  getAll:     ()             => api.get('/api/users'),
+  getAll:     (params)       => api.get('/api/users', { params }),
   create:     (data)         => api.post('/api/users', data),
   update:     (id, data)     => api.put(`/api/users/${id}`, data),
   remove:     (id)           => api.delete(`/api/users/${id}`),

@@ -19,28 +19,47 @@ const extractRole = (u) => {
 export const UsersPage = () => {
   const { loading, hasPermission, hasRole } = useAuth();
 
-  const [users,    setUsers]    = useState([]);
-  const [roles,    setRoles]    = useState([]);
-  const [search,   setSearch]   = useState('');
+  // Data & Pagination State
+  const [users, setUsers] = useState([]);
   const [fetching, setFetching] = useState(true);
-  const [toast,    setToast]    = useState(null);
-  const [saving,   setSaving]   = useState(false);
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState(10);
+  const [sort, setSort] = useState('createdAt');
+  const [direction, setDirection] = useState('DESC');
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+
+  // Filter States
+  const [search, setSearch] = useState('');
+  const [filterName, setFilterName] = useState('');
+  const [filterUsername, setFilterUsername] = useState('');
+  const [filterEmail, setFilterEmail] = useState('');
+  const [filterActive, setFilterActive] = useState(''); // '', 'true', 'false'
+  const [filterRole, setFilterRole] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Common UI State
+  const [roles, setRoles] = useState([]);
+  const [toast, setToast] = useState(null);
+  const [saving, setSaving] = useState(false);
 
   // Add modal
-  const [showAdd,  setShowAdd]  = useState(false);
-  const [newUser,  setNewUser]  = useState({ name: '', username: '', email: '', password: '', roleName: 'ROLE_USER' });
+  const [showAdd, setShowAdd] = useState(false);
+  const [newUser, setNewUser] = useState({ name: '', username: '', email: '', password: '', roleName: 'ROLE_USER' });
 
   // Edit modal
   const [showEdit, setShowEdit] = useState(false);
   const [editUser, setEditUser] = useState(null);
 
   // Delete confirm
-  const [showDelete,  setShowDelete]  = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
-  const canEdit   = hasPermission('user:write');
+  const canEdit = hasPermission('user:write');
   const canDelete = hasPermission('user:delete');
-  const isAdmin   = hasRole('ROLE_ADMIN');
+  const isAdmin = hasRole('ROLE_ADMIN');
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
@@ -50,17 +69,45 @@ export const UsersPage = () => {
   const loadUsers = useCallback(async () => {
     setFetching(true);
     try {
-      const res = await usersApi.getAll();
-      const list = Array.isArray(res.data) ? res.data : [];
-      setUsers(list.map(u => ({ ...u, role: extractRole(u) })));
-    } catch {
+      const params = {
+        page,
+        size,
+        sort,
+        direction,
+      };
+
+      if (search) params.search = search;
+      if (filterName) params.name = filterName;
+      if (filterUsername) params.username = filterUsername;
+      if (filterEmail) params.email = filterEmail;
+      if (filterActive !== '') params.active = filterActive === 'true';
+      if (filterRole && filterRole !== 'ALL') params.role = filterRole;
+      if (startDate) params.startDate = new Date(startDate).toISOString();
+      if (endDate) params.endDate = new Date(endDate).toISOString();
+
+      const res = await usersApi.getAll(params);
+      const data = res.data;
+      if (data) {
+        const list = Array.isArray(data.content) ? data.content : [];
+        setUsers(list.map(u => ({ ...u, role: extractRole(u) })));
+        setTotalPages(data.totalPages ?? 0);
+        setTotalElements(data.totalElements ?? 0);
+      }
+    } catch (err) {
       showToast('Could not load users from server', 'error');
     } finally {
       setFetching(false);
     }
-  }, []);
+  }, [page, size, sort, direction, search, filterName, filterUsername, filterEmail, filterActive, filterRole, startDate, endDate]);
 
-  useEffect(() => { loadUsers(); }, [loadUsers]);
+  useEffect(() => {
+    loadUsers();
+  }, [loadUsers]);
+
+  // Reset page to 0 when filters change to avoid getting stuck on an empty page
+  useEffect(() => {
+    setPage(0);
+  }, [search, filterName, filterUsername, filterEmail, filterActive, filterRole, startDate, endDate]);
 
   useEffect(() => {
     rolesApi.getAll()
@@ -69,7 +116,6 @@ export const UsersPage = () => {
         setRoles(list);
       })
       .catch(() => {
-        // fallback to defaults if roles API fails
         setRoles([
           { name: 'ROLE_USER' },
           { name: 'ROLE_MANAGER' },
@@ -81,11 +127,28 @@ export const UsersPage = () => {
   if (loading) return null;
   if (!hasPermission('user:read')) return <Navigate to="/dashboard" replace />;
 
-  const filtered = users.filter(u =>
-    [u.name, u.email, u.username].some(f =>
-      f?.toLowerCase().includes(search.toLowerCase())
-    )
-  );
+  const handleSort = (field) => {
+    if (sort === field) {
+      setDirection(prev => prev === 'ASC' ? 'DESC' : 'ASC');
+    } else {
+      setSort(field);
+      setDirection('ASC');
+    }
+    setPage(0);
+  };
+
+  const resetFilters = () => {
+    setSearch('');
+    setFilterName('');
+    setFilterUsername('');
+    setFilterEmail('');
+    setFilterActive('');
+    setFilterRole('');
+    setStartDate('');
+    setEndDate('');
+    setPage(0);
+    showToast('Filters cleared');
+  };
 
   // ── CREATE ───────────────────────────────────────────────────────
   const handleCreate = async () => {
@@ -95,18 +158,17 @@ export const UsersPage = () => {
     }
     setSaving(true);
     try {
-      const res = await usersApi.create({
+      await usersApi.create({
         name:     newUser.name || newUser.username,
         username: newUser.username,
         email:    newUser.email,
         password: newUser.password,
         roleName: newUser.roleName,
       });
-      const created = { ...res.data, role: newUser.roleName || extractRole(res.data) };
-      setUsers(prev => [...prev, created]);
       setShowAdd(false);
       setNewUser({ name: '', username: '', email: '', password: '', roleName: 'ROLE_USER' });
       showToast('User created successfully');
+      loadUsers();
     } catch (err) {
       showToast(err?.response?.data?.message || 'Failed to create user', 'error');
     } finally {
@@ -135,12 +197,11 @@ export const UsersPage = () => {
       };
       if (editUser.password) payload.password = editUser.password;
 
-      const res = await usersApi.update(editUser.id, payload);
-      const updated = { ...res.data, role: editUser.roleName || extractRole(res.data) };
-      setUsers(prev => prev.map(u => u.id === editUser.id ? updated : u));
+      await usersApi.update(editUser.id, payload);
       setShowEdit(false);
       setEditUser(null);
-      showToast('User updated successfully. Active sessions were revoked and the user must sign in again.');
+      showToast('User updated successfully.');
+      loadUsers();
     } catch (err) {
       showToast(err?.response?.data?.message || 'Failed to update user', 'error');
     } finally {
@@ -158,15 +219,24 @@ export const UsersPage = () => {
     setSaving(true);
     try {
       await usersApi.remove(deleteTarget.id);
-      setUsers(prev => prev.filter(u => u.id !== deleteTarget.id));
       setShowDelete(false);
       setDeleteTarget(null);
       showToast('User deleted');
+      loadUsers();
     } catch (err) {
       showToast(err?.response?.data?.message || 'Failed to delete user', 'error');
     } finally {
       setSaving(false);
     }
+  };
+
+  // Pagination helper calculations
+  const startNum = totalElements === 0 ? 0 : page * size + 1;
+  const endNum = Math.min((page + 1) * size, totalElements);
+
+  const renderSortIndicator = (field) => {
+    if (sort !== field) return <span style={{ color: 'var(--color-text-faint)', marginLeft: 4 }}>↕</span>;
+    return direction === 'ASC' ? <span style={{ color: 'var(--color-primary)', marginLeft: 4 }}>▲</span> : <span style={{ color: 'var(--color-primary)', marginLeft: 4 }}>▼</span>;
   };
 
   return (
@@ -201,87 +271,232 @@ export const UsersPage = () => {
         )}
       </div>
 
-      {/* Search */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
-        <div className="search-bar" style={{ flex: 1, maxWidth: 340 }}>
-          <span className="search-bar-icon">🔍</span>
-          <input
-            type="search"
-            className="form-control"
-            placeholder="Search users…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
+      {/* Search and Filters Bar */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24, padding: 16, background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)' }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="search-bar" style={{ flex: 1, minWidth: 280, maxWidth: 380 }}>
+            <span className="search-bar-icon">🔍</span>
+            <input
+              type="search"
+              className="form-control"
+              placeholder="Search by name, username or email…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+          <button className="btn btn-secondary btn-sm" onClick={() => setShowFilters(!showFilters)}>
+            ⚙️ {showFilters ? 'Hide Advanced Filters' : 'Show Advanced Filters'}
+          </button>
+          {(search || filterName || filterUsername || filterEmail || filterActive || filterRole || startDate || endDate) && (
+            <button className="btn btn-outline btn-sm" onClick={resetFilters}>Clear All</button>
+          )}
         </div>
+
+        {/* Collapsible Advanced Filters */}
+        {showFilters && (
+          <div className="animate-slide-down" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16, marginTop: 12, borderTop: '1px solid var(--color-border)', paddingTop: 16 }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Filter by Name</label>
+              <input
+                className="form-control"
+                placeholder="Name matches..."
+                value={filterName}
+                onChange={e => setFilterName(e.target.value)}
+              />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Filter by Username</label>
+              <input
+                className="form-control"
+                placeholder="Username matches..."
+                value={filterUsername}
+                onChange={e => setFilterUsername(e.target.value)}
+              />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Filter by Email</label>
+              <input
+                className="form-control"
+                placeholder="Email matches..."
+                value={filterEmail}
+                onChange={e => setFilterEmail(e.target.value)}
+              />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Status</label>
+              <select className="form-control" value={filterActive} onChange={e => setFilterActive(e.target.value)}>
+                <option value="">All Statuses</option>
+                <option value="true">Active</option>
+                <option value="false">Inactive</option>
+              </select>
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Role</label>
+              <select className="form-control" value={filterRole} onChange={e => setFilterRole(e.target.value)}>
+                <option value="">All Roles</option>
+                {roles.map(r => (
+                  <option key={r.name} value={r.name}>{r.name.replace('ROLE_', '')}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Created From</label>
+              <input
+                type="date"
+                className="form-control"
+                value={startDate}
+                onChange={e => setStartDate(e.target.value)}
+              />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Created To</label>
+              <input
+                type="date"
+                className="form-control"
+                value={endDate}
+                onChange={e => setEndDate(e.target.value)}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Table */}
-      <div className="table-wrap">
-        {fetching ? (
-          <div style={{ padding: 40, textAlign: 'center', color: 'var(--color-text-muted)' }}>
-            Loading users…
+      <div className="table-wrap" style={{ position: 'relative' }}>
+        {fetching && (
+          <div style={{
+            position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.6)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10
+          }}>
+            <div style={{ color: 'var(--color-primary)', fontWeight: 600 }}>Loading...</div>
           </div>
-        ) : (
-          <table>
-            <thead>
+        )}
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th onClick={() => handleSort('name')} style={{ cursor: 'pointer', userSelect: 'none' }}>
+                Name {renderSortIndicator('name')}
+              </th>
+              <th onClick={() => handleSort('username')} style={{ cursor: 'pointer', userSelect: 'none' }}>
+                Username {renderSortIndicator('username')}
+              </th>
+              <th onClick={() => handleSort('email')} style={{ cursor: 'pointer', userSelect: 'none' }}>
+                Email {renderSortIndicator('email')}
+              </th>
+              <th>Role</th>
+              <th onClick={() => handleSort('active')} style={{ cursor: 'pointer', userSelect: 'none' }}>
+                Status {renderSortIndicator('active')}
+              </th>
+              <th onClick={() => handleSort('createdAt')} style={{ cursor: 'pointer', userSelect: 'none' }}>
+                Created At {renderSortIndicator('createdAt')}
+              </th>
+              {(canEdit || canDelete) && <th>Actions</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {users.length === 0 ? (
               <tr>
-                <th>#</th>
-                <th>Name</th>
-                <th>Username</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Status</th>
-                {(canEdit || canDelete) && <th>Actions</th>}
+                <td colSpan={canEdit || canDelete ? 8 : 7}>
+                  <div className="empty-state" style={{ padding: '48px 0' }}>
+                    <div className="empty-icon" style={{ fontSize: 32 }}>👤</div>
+                    <div className="empty-title" style={{ fontWeight: 700, margin: '8px 0' }}>No users found</div>
+                    <div className="empty-text" style={{ color: 'var(--color-text-muted)' }}>
+                      Try adjusting your search criteria or filters.
+                    </div>
+                  </div>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={canEdit || canDelete ? 7 : 6}>
-                    <div className="empty-state">
-                      <div className="empty-icon">👤</div>
-                      <div className="empty-title">No users found</div>
-                      <div className="empty-text">
-                        {search ? 'Try a different search term.' : 'No users available.'}
+            ) : (
+              users.map((u, i) => (
+                <tr key={u.id}>
+                  <td style={{ color: 'var(--color-text-faint)' }}>{page * size + i + 1}</td>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{
+                        width: 32, height: 32, borderRadius: '50%',
+                        background: 'var(--color-primary-subtle)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 13, fontWeight: 700, color: 'var(--color-primary)', flexShrink: 0,
+                      }}>
+                        {(u.name || u.username || '?').slice(0, 2).toUpperCase()}
                       </div>
+                      <span style={{ fontWeight: 600 }}>{u.name || u.username}</span>
                     </div>
                   </td>
-                </tr>
-              ) : (
-                filtered.map((u, i) => (
-                  <tr key={u.id}>
-                    <td style={{ color: 'var(--color-text-faint)' }}>{i + 1}</td>
+                  <td><code style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>@{u.username}</code></td>
+                  <td style={{ color: 'var(--color-text-muted)' }}>{u.email}</td>
+                  <td><span className={`badge ${roleColor(u.role)}`}>{u.role?.replace('ROLE_', '')}</span></td>
+                  <td><span className={`badge ${u.active !== false ? 'badge-green' : 'badge-gray'}`}>● {u.active !== false ? 'Active' : 'Inactive'}</span></td>
+                  <td style={{ color: 'var(--color-text-muted)', fontSize: 13 }}>
+                    {u.createdAt ? new Date(u.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '—'}
+                  </td>
+                  {(canEdit || canDelete) && (
                     <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{
-                          width: 32, height: 32, borderRadius: '50%',
-                          background: 'var(--color-primary-subtle)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 13, fontWeight: 700, color: 'var(--color-primary)', flexShrink: 0,
-                        }}>
-                          {(u.name || u.username || '?').slice(0, 2).toUpperCase()}
-                        </div>
-                        <span style={{ fontWeight: 600 }}>{u.name || u.username}</span>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        {canEdit   && <button className="btn btn-secondary btn-sm" onClick={() => openEdit(u)}   title="Edit">✏️</button>}
+                        {canDelete && <button className="btn btn-danger btn-sm"    onClick={() => openDelete(u)} title="Delete">🗑️</button>}
                       </div>
                     </td>
-                    <td><code style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>@{u.username}</code></td>
-                    <td style={{ color: 'var(--color-text-muted)' }}>{u.email}</td>
-                    <td><span className={`badge ${roleColor(u.role)}`}>{u.role?.replace('ROLE_', '')}</span></td>
-                    <td><span className={`badge ${u.active !== false ? 'badge-green' : 'badge-gray'}`}>● {u.active !== false ? 'Active' : 'Inactive'}</span></td>
-                    {(canEdit || canDelete) && (
-                      <td>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          {canEdit   && <button className="btn btn-secondary btn-sm" onClick={() => openEdit(u)}   title="Edit">✏️</button>}
-                          {canDelete && <button className="btn btn-danger btn-sm"    onClick={() => openDelete(u)} title="Delete">🗑️</button>}
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        )}
+                  )}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination Controls */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ fontSize: 14, color: 'var(--color-text-muted)' }}>
+          Showing <strong>{startNum}</strong> to <strong>{endNum}</strong> of <strong>{totalElements}</strong> entries
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Rows per page:</span>
+            <select
+              className="form-control"
+              style={{ width: 70, padding: '4px 8px' }}
+              value={size}
+              onChange={e => { setSize(Number(e.target.value)); setPage(0); }}
+            >
+              <option value="5">5</option>
+              <option value="10">10</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+            </select>
+          </div>
+
+          <div style={{ display: 'flex', gap: 4 }}>
+            <button
+              className="btn btn-outline btn-sm"
+              disabled={page === 0}
+              onClick={() => setPage(prev => Math.max(0, prev - 1))}
+            >
+              ◀ Prev
+            </button>
+            
+            {Array.from({ length: totalPages }, (_, idx) => (
+              <button
+                key={idx}
+                className={`btn btn-sm ${page === idx ? 'btn-primary' : 'btn-ghost'}`}
+                style={{ minWidth: 32, padding: '4px 8px' }}
+                onClick={() => setPage(idx)}
+              >
+                {idx + 1}
+              </button>
+            ))}
+
+            <button
+              className="btn btn-outline btn-sm"
+              disabled={page >= totalPages - 1}
+              onClick={() => setPage(prev => Math.min(totalPages - 1, prev + 1))}
+            >
+              Next ▶
+            </button>
+          </div>
+        </div>
       </div>
 
       {!canEdit && !canDelete && (

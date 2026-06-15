@@ -1,7 +1,10 @@
 package com.rbac.config;
 
 import com.rbac.security.JwtAuthFilter;
+import com.rbac.security.IpRestrictionFilter;
+import com.rbac.security.RateLimitingFilter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -22,6 +25,11 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
+    private final IpRestrictionFilter ipRestrictionFilter;
+    private final RateLimitingFilter rateLimitingFilter;
+
+    @Value("${app.security.bcrypt.strength:12}")
+    private int bcryptStrength;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -35,12 +43,14 @@ public class SecurityConfig {
                     .anyRequest().authenticated()
                     .and()
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(rateLimitingFilter, JwtAuthFilter.class)
+                .addFilterBefore(ipRestrictionFilter, RateLimitingFilter.class)
                 .build();
     }
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(12);
+        return new BCryptPasswordEncoder(bcryptStrength);
     }
 
     @Bean

@@ -89,8 +89,13 @@ export const DashboardPage = () => {
           nextStats.activeSessions = dashboardResult.value.data?.activeSessions ?? nextStats.activeSessions;
         }
 
-        if (usersResult.status === 'fulfilled' && Array.isArray(usersResult.value.data)) {
-          nextStats.totalUsers = usersResult.value.data.length;
+        if (usersResult.status === 'fulfilled') {
+          const uData = usersResult.value.data;
+          if (uData) {
+            nextStats.totalUsers = typeof uData.totalElements === 'number'
+              ? uData.totalElements
+              : (Array.isArray(uData) ? uData.length : nextStats.totalUsers);
+          }
         }
 
         if (rolesResult.status === 'fulfilled' && Array.isArray(rolesResult.value.data)) {

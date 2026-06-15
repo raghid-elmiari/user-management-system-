@@ -7,7 +7,9 @@ import com.rbac.domain.UserRoleId;
 import com.rbac.dto.request.AssignRoleRequest;
 import com.rbac.dto.request.CreateUserRequest;
 import com.rbac.dto.request.UpdateUserRequest;
+import com.rbac.dto.request.UserFilter;
 import com.rbac.dto.response.UserResponse;
+import com.rbac.dto.response.PaginatedResponse;
 import com.rbac.exception.DuplicateResourceException;
 import com.rbac.exception.ResourceNotFoundException;
 import com.rbac.mapper.UserMapper;
@@ -15,8 +17,11 @@ import com.rbac.repository.RefreshTokenRepository;
 import com.rbac.repository.RoleRepository;
 import com.rbac.repository.UserRepository;
 import com.rbac.repository.UserRoleRepository;
-import com.rbac.repository.RefreshTokenRepository;
+import com.rbac.repository.UserSpecification;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +48,24 @@ public class UserService {
         return userRepository.findAll().stream()
                 .map(userMapper::toResponse)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public PaginatedResponse<UserResponse> getUsers(UserFilter filter, Pageable pageable) {
+        Specification<User> spec = UserSpecification.filterUsers(filter);
+        Page<User> page = userRepository.findAll(spec, pageable);
+
+        List<UserResponse> content = page.getContent().stream()
+                .map(userMapper::toResponse)
+                .collect(Collectors.toList());
+
+        return PaginatedResponse.<UserResponse>builder()
+                .content(content)
+                .currentPage(page.getNumber())
+                .totalPages(page.getTotalPages())
+                .totalElements(page.getTotalElements())
+                .pageSize(page.getSize())
+                .build();
     }
 
     @Transactional

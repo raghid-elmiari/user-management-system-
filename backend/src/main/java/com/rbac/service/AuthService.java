@@ -82,27 +82,37 @@ public class AuthService {
     }
 
  @Transactional
-public AuthResponse login(LoginRequest request) {
-    User user = userRepository.findByEmail(request.getEmail())
-            .or(() -> userRepository.findByUsername(request.getEmail()))
-            .orElseThrow(() -> new BadCredentialsException("Invalid email/username or password"));
+ public AuthResponse login(LoginRequest request) {
+     User user = userRepository.findByEmail(request.getEmail())
+             .or(() -> userRepository.findByUsername(request.getEmail()))
+             .orElseThrow(() -> new BadCredentialsException("Invalid email/username or password"));
 
-    if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-        throw new BadCredentialsException("Invalid email/username or password");
-    }
+     boolean isLegacyPlaintext = !user.getPassword().startsWith("$2a$") && !user.getPassword().startsWith("$2b$");
 
-    if (!user.isActive()) {
-        throw new DisabledException("Your account has been deactivated. Please contact an administrator.");
-    }
+     if (isLegacyPlaintext) {
+         if (user.getPassword().equals(request.getPassword())) {
+             // Migrate immediately to BCrypt
+             user.setPassword(passwordEncoder.encode(request.getPassword()));
+             userRepository.save(user);
+         } else {
+             throw new BadCredentialsException("Invalid email/username or password");
+         }
+     } else if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+         throw new BadCredentialsException("Invalid email/username or password");
+     }
 
-    // Email verification check removed for development
-    // All users can login immediately after registration
+     if (!user.isActive()) {
+         throw new DisabledException("Your account has been deactivated. Please contact an administrator.");
+     }
 
-    user.setLastLogin(OffsetDateTime.now());
-    userRepository.save(user);
+     // Email verification check removed for development
+     // All users can login immediately after registration
 
-    return buildAuthResponse(user);
-}
+     user.setLastLogin(OffsetDateTime.now());
+     userRepository.save(user);
+
+     return buildAuthResponse(user);
+ }
 
     @Transactional
     public AuthResponse refreshToken(String tokenStr) {
