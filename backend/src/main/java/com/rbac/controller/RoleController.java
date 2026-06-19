@@ -20,13 +20,9 @@ public class RoleController {
 
     private final RoleService roleService;
 
-    // The Permissions page also calls this endpoint to load each role's
-    // current permission set, so permission:read alone (without role:read)
-    // must be sufficient — otherwise a user granted "view/edit permissions"
-    // access gets a 403 here despite the frontend route guard saying
-    // permission:read is enough to use the page.
+    
     @GetMapping
-    @PreAuthorize("hasAuthority('PERMISSION_role:read') or hasAuthority('PERMISSION_permission:read')")
+    @PreAuthorize("hasAuthority('PERMISSION_role:read') or hasAuthority('PERMISSION_permission:read') or hasAuthority('PERMISSION_hierarchy:read')")
     public ResponseEntity<List<RoleResponse>> getRoles() {
         return ResponseEntity.ok(roleService.getAllRoles());
     }

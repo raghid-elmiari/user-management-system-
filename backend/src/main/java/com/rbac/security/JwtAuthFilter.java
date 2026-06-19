@@ -70,5 +70,6 @@ if (permissions != null)
 if (roles != null)
     roles.forEach(r -> authorities.add(new SimpleGrantedAuthority(r)));
     }
+    
 }
 

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { hierarchyApi } from '../api/hierarchyApi';
 import { rolesApi } from '../api/rolesApi';
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const ROLE_VISUALS = {
   ROLE_ADMIN: { color: 'var(--color-primary)', bg: 'var(--color-primary-subtle)', icon: '👑' },
@@ -110,6 +112,7 @@ const TreeNode = ({ node, depth = 0 }) => {
 };
 
 export const HierarchyPage = () => {
+  const { hasPermission } = useAuth();
   const [roles, setRoles] = useState([]);
   const [links, setLinks] = useState([]);
 
@@ -144,6 +147,9 @@ export const HierarchyPage = () => {
   }, []);
 
   const hierarchy = useMemo(() => buildHierarchyTree(roles, links), [roles, links]);
+if (!hasPermission('hierarchy:read')) {
+    return <Navigate to="/unauthorized" replace />;
+}
 
   return (
     <div className="animate-fade-in">
