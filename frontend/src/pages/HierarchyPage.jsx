@@ -112,15 +112,32 @@ const TreeNode = ({ node, depth = 0 }) => {
 };
 
 export const HierarchyPage = () => {
-  const { hasPermission } = useAuth();
+  const { refreshCurrentUser } = useAuth();
   const [roles, setRoles] = useState([]);
   const [links, setLinks] = useState([]);
+  // null = still checking, true = allowed, false = denied
+  const [accessChecked, setAccessChecked] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
 
     const loadHierarchy = async () => {
       try {
+        // Refresh the user's permissions from the backend first.
+        // This ensures that if an admin removed hierarchy:read from this user's
+        // role since their last login, they are redirected immediately.
+        const freshUser = await refreshCurrentUser();
+        const allowed = Array.isArray(freshUser?.permissions)
+          ? freshUser.permissions.includes('hierarchy:read')
+          : false;
+
+        if (cancelled) return;
+
+        if (!allowed) {
+          setAccessChecked(false);
+          return;
+        }
+
         const [rolesResponse, linksResponse] = await Promise.all([
           rolesApi.getAll(),
           hierarchyApi.getAll(),
@@ -130,11 +147,18 @@ export const HierarchyPage = () => {
 
         setRoles(Array.isArray(rolesResponse.data) ? rolesResponse.data : []);
         setLinks(Array.isArray(linksResponse.data) ? linksResponse.data : []);
+        setAccessChecked(true);
       } catch (error) {
         console.error('Failed to load hierarchy', error);
         if (!cancelled) {
-          setRoles([]);
-          setLinks([]);
+          // If the refresh call itself 403'd, deny access
+          if (error?.response?.status === 403) {
+            setAccessChecked(false);
+          } else {
+            setRoles([]);
+            setLinks([]);
+            setAccessChecked(true);
+          }
         }
       }
     };
@@ -146,10 +170,12 @@ export const HierarchyPage = () => {
     };
   }, []);
 
-  const hierarchy = useMemo(() => buildHierarchyTree(roles, links), [roles, links]);
-if (!hasPermission('hierarchy:read')) {
-    return <Navigate to="/unauthorized" replace />;
-}
+  // Still verifying access — render nothing to avoid flash
+  if (accessChecked === null) return null;
+
+  if (!accessChecked) return <Navigate to="/dashboard" replace />;
+
+  const hierarchy = buildHierarchyTree(roles, links);
 
   return (
     <div className="animate-fade-in">

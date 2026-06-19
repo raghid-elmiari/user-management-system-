@@ -66,7 +66,6 @@ Permission roleDelete = createPermissionIfAbsent("role:delete", "role", "delete"
             assignPermissionToRole(managerRole, userWrite);
             assignPermissionToRole(managerRole, roleRead);
              assignPermissionToRole(managerRole, hierarchyRead);
-            assignPermissionToRole(userRole, hierarchyRead);
             assignPermissionToRole(userRole, userRead);
             
 
@@ -167,4 +166,3 @@ Permission roleDelete = createPermissionIfAbsent("role:delete", "role", "delete"
         }
     }
 }
-

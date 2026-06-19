@@ -29,7 +29,7 @@ const DEFAULT_ROLE_PERMISSIONS = {
     'hierarchy:read',
   ],
   ROLE_USER: [
-    'hierarchy:read',
+    
   ],
 };
 

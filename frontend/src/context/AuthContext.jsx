@@ -92,19 +92,34 @@ const getGrantedPermissions = (user, overrides = {}) => {
 
   const roles = getGrantedRoles(user);
 
+  // Direct user-level permissions are always included
   const direct = normalizeList(user.permissions);
 
+  // For each role, if an override exists use it (it is the authoritative list
+  // for that role — removing a permission in the UI must actually remove it).
+  // Only fall back to backend role permissions when no override has been saved.
+  const rolesWithOverrides = new Set(Object.keys(overrides));
+
   const rolePerms = normalizeList(
-    user.roles?.flatMap((r) => r?.permissions || r?.rolePermissions || [])
+    user.roles?.flatMap((r) => {
+      const roleName = typeof r === 'string' ? r : r?.name;
+      if (roleName && rolesWithOverrides.has(roleName)) return []; // overridden below
+      return r?.permissions || r?.rolePermissions || [];
+    })
   );
 
   const nestedPerms = normalizeList(
-    user.userRoles?.flatMap(
-      (r) => r?.role?.permissions || r?.role?.rolePermissions || []
-    )
+    user.userRoles?.flatMap((r) => {
+      const roleName = r?.role?.name;
+      if (roleName && rolesWithOverrides.has(roleName)) return []; // overridden below
+      return r?.role?.permissions || r?.role?.rolePermissions || [];
+    })
   );
 
-  const overridePerms = roles.flatMap((r) => overrides[r] || []);
+  // Permissions from roles that have been explicitly overridden
+  const overridePerms = roles.flatMap((r) =>
+    rolesWithOverrides.has(r) ? (overrides[r] || []) : []
+  );
 
   return [...new Set([...direct, ...rolePerms, ...nestedPerms, ...overridePerms])];
 };
