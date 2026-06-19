@@ -133,6 +133,22 @@ public class UserService {
         return userMapper.toResponse(saved);
     }
 
+  @Transactional
+    public UserResponse updateStatus(UUID userId, boolean active) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + userId));
+        user.setActive(active);
+        return userMapper.toResponse(userRepository.save(user));
+    }
+
+    @Transactional
+    public void deleteUser(UUID userId) {
+        if (!userRepository.existsById(userId)) {
+            throw new ResourceNotFoundException("User not found with id " + userId);
+        }
+        userRepository.deleteById(userId);
+    }
+    
     @Transactional
     public UserResponse assignRole(UUID userId, AssignRoleRequest request) {
         User user = userRepository.findById(userId)
@@ -176,21 +192,7 @@ public class UserService {
         return userMapper.toResponse(user);
     }
 
-    @Transactional
-    public UserResponse updateStatus(UUID userId, boolean active) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + userId));
-        user.setActive(active);
-        return userMapper.toResponse(userRepository.save(user));
-    }
-
-    @Transactional
-    public void deleteUser(UUID userId) {
-        if (!userRepository.existsById(userId)) {
-            throw new ResourceNotFoundException("User not found with id " + userId);
-        }
-        userRepository.deleteById(userId);
-    }
+  
 
     // ── private helper ────────────────────────────────────────────
 

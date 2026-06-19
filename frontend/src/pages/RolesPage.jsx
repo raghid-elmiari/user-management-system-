@@ -13,7 +13,7 @@ const MOCK_ROLES = [
 ];
 
 export const RolesPage = () => {
-  const { loading, hasPermission, hasRole } = useAuth();
+  const { loading, hasPermission } = useAuth();
 
   const [roles, setRoles] = useState([]);
   const [search, setSearch] = useState('');
@@ -42,13 +42,14 @@ export const RolesPage = () => {
   if (loading) return null;
   if (!hasPermission('role:read')) return <Navigate to="/403" />;
 
-  const canEdit =
-    hasPermission('role:write') ||
-    hasRole(['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_USER']);
+  // canEdit must depend only on the actual permission this action requires.
+  // The previous hasRole([...]) fallback granted edit/create access to any
+  // Manager (and even plain Users) regardless of whether role:write was
+  // actually assigned to their role, which is what let the buttons show
+  // even after role:write was unchecked for Manager.
+  const canEdit = hasPermission('role:write');
 
-  const canDelete =
-    hasPermission('role:delete') || hasRole('ROLE_ADMIN');
-
+  const canDelete = hasPermission('role:delete');
   const showToast = (type, message) => {
     setToast({ type, message });
   };

@@ -39,9 +39,10 @@ Permission permRead = createPermissionIfAbsent("permission:read", "permission", 
 Permission permWrite = createPermissionIfAbsent("permission:write", "permission", "write", "Create permissions");
 
 Permission hierarchyRead = createPermissionIfAbsent("hierarchy:read", "hierarchy", "read", "Read role hierarchy");
+Permission roleDelete = createPermissionIfAbsent("role:delete", "role", "delete", "Delete roles");
 
+            Permission permDelete = createPermissionIfAbsent("permission:delete", "permission", "delete", "Delete permissions");
 
-            
 
             // Create roles
             Role adminRole = createRoleIfAbsent("ROLE_ADMIN", "Administrator with full access");
@@ -58,15 +59,18 @@ Permission hierarchyRead = createPermissionIfAbsent("hierarchy:read", "hierarchy
             assignPermissionToRole(adminRole, permRead);
             assignPermissionToRole(adminRole, permWrite);
             assignPermissionToRole(adminRole, hierarchyRead);
-
+            assignPermissionToRole(adminRole, roleDelete);
+            assignPermissionToRole(adminRole, permDelete);
 
             assignPermissionToRole(managerRole, userRead);
             assignPermissionToRole(managerRole, userWrite);
             assignPermissionToRole(managerRole, roleRead);
-assignPermissionToRole(userRole, hierarchyRead);
+             assignPermissionToRole(managerRole, hierarchyRead);
+            assignPermissionToRole(userRole, hierarchyRead);
+            assignPermissionToRole(userRole, userRead);
             
 
-            // Create Role Hierarchy: ROLE_ADMIN -> ROLE_MANAGER -> ROLE_USER
+
             createHierarchyLinkIfAbsent(adminRole, managerRole);
             createHierarchyLinkIfAbsent(managerRole, userRole);
            

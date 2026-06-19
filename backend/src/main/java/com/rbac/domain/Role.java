@@ -30,9 +30,13 @@ public class Role {
 
     private String description;
 
-    @OneToMany(mappedBy = "role", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private Set<RolePermission> rolePermissions = new HashSet<>();
+    @OneToMany(
+        mappedBy = "role",
+        cascade = CascadeType.ALL,
+        orphanRemoval = true,
+        fetch = FetchType.LAZY
+)
+private Set<RolePermission> rolePermissions = new HashSet<>();
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

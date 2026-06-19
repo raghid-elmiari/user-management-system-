@@ -17,4 +17,9 @@ public interface UserRoleRepository extends JpaRepository<UserRole, UserRoleId> 
     @Query("DELETE FROM UserRole ur WHERE ur.id.userId = :userId")
     void deleteAllByUserId(@Param("userId") UUID userId);
 
+    // BUG FIX: needed by RoleService.deleteRole() to remove user_roles rows
+    // that reference the role being deleted (prevents FK constraint violation)
+    @Modifying
+    @Query("DELETE FROM UserRole ur WHERE ur.id.roleId = :roleId")
+    void deleteAllByRoleId(@Param("roleId") UUID roleId);
 }

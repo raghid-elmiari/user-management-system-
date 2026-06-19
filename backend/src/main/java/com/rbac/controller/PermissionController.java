@@ -11,6 +11,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/permissions")
@@ -30,5 +31,20 @@ public class PermissionController {
     public ResponseEntity<PermissionResponse> createPermission(@Valid @RequestBody CreatePermissionRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(permissionService.createPermission(request));
     }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('PERMISSION_permission:delete')")
+    public ResponseEntity<Void> deletePermission(@PathVariable UUID id) {
+        permissionService.deletePermission(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('PERMISSION_permission:write')")
+    public ResponseEntity<PermissionResponse> updatePermission(
+        @PathVariable UUID id,
+        @Valid @RequestBody CreatePermissionRequest request) {
+    return ResponseEntity.ok(permissionService.updatePermission(id, request));
+}
 }
 

@@ -17,6 +17,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.ArrayList;
 
 @Component
 @RequiredArgsConstructor
@@ -58,6 +59,16 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+        List<String> permissions = jwtService.extractClaim(token,
+    claims -> (List<String>) claims.get("permissions"));
+List<String> roles = jwtService.extractClaim(token,
+    claims -> (List<String>) claims.get("roles"));  // add roles to JWT in AuthService too
+
+List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+if (permissions != null)
+    permissions.forEach(p -> authorities.add(new SimpleGrantedAuthority("PERMISSION_" + p)));
+if (roles != null)
+    roles.forEach(r -> authorities.add(new SimpleGrantedAuthority(r)));
     }
 }
 

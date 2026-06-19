@@ -20,8 +20,13 @@ public class RoleController {
 
     private final RoleService roleService;
 
+    // The Permissions page also calls this endpoint to load each role's
+    // current permission set, so permission:read alone (without role:read)
+    // must be sufficient — otherwise a user granted "view/edit permissions"
+    // access gets a 403 here despite the frontend route guard saying
+    // permission:read is enough to use the page.
     @GetMapping
-    @PreAuthorize("hasAuthority('PERMISSION_role:read')")
+    @PreAuthorize("hasAuthority('PERMISSION_role:read') or hasAuthority('PERMISSION_permission:read')")
     public ResponseEntity<List<RoleResponse>> getRoles() {
         return ResponseEntity.ok(roleService.getAllRoles());
     }
@@ -36,7 +41,7 @@ public class RoleController {
     }
 
     @PutMapping("/{roleName}/permissions")
-    @PreAuthorize("hasAuthority('PERMISSION_role:write')")
+    @PreAuthorize("hasAuthority('PERMISSION_permission:write')")
     public ResponseEntity<RoleResponse> updateRolePermissions(
             @PathVariable String roleName,
             @RequestBody UpdateRolePermissionsRequest request) {
@@ -57,8 +62,9 @@ public class RoleController {
         );
     }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteRole(@PathVariable UUID id) {
+@DeleteMapping("/{id}")
+@PreAuthorize("hasAuthority('PERMISSION_role:delete')")
+public ResponseEntity<Void> deleteRole(@PathVariable UUID id) {
         roleService.deleteRole(id);
         return ResponseEntity.noContent().build();
     }

@@ -3,6 +3,7 @@ import axios from "axios";
 let getAccessToken = () => null;
 let getRefreshToken = () => null;
 let onAuthFailure = () => {};
+let onTokenRefreshed = () => {};
 
 let isRefreshing = false;
 let failedQueue = [];
@@ -22,10 +23,12 @@ export const configureAxiosAuth = ({
   getToken,
   getRefreshToken: getRefresh,
   onFailure,
+  onRefreshed,
 }) => {
   getAccessToken = getToken;
   getRefreshToken = getRefresh;
   onAuthFailure = onFailure;
+  if (onRefreshed) onTokenRefreshed = onRefreshed;
 };
 
 const api = axios.create({
@@ -87,6 +90,13 @@ api.interceptors.response.use(
       if (newRefreshToken) {
         localStorage.setItem("refreshToken", newRefreshToken);
       }
+
+      // ✅ sync fresh user/roles/permissions into AuthContext so UI gates
+      // (e.g. canEdit, hasPermission) immediately reflect any role/permission
+      // changes an admin made since this user last logged in or refreshed —
+      // without this, the in-memory user object stays stale even though the
+      // token itself was just renewed with the correct claims.
+      onTokenRefreshed(response.data);
 
       // ✅ update queued requests
       processQueue(null, accessToken);

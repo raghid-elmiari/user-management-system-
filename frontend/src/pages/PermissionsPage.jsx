@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { rolesApi } from '../api/rolesApi';
@@ -68,9 +68,11 @@ export const PermissionsPage = () => {
   const [saveError, setSaveError] = useState('');
   const [filterResource, setFilterResource] = useState('');
   const [pageLoading, setPageLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const loadPermissionsRef = useRef(null);
 
   useEffect(() => {
-    const loadPermissions = async () => {
+    const loadPermissions = async ({ silent = false } = {}) => {
       try {
         const response = await rolesApi.getAll();
         const rolesData = response.data ?? [];
@@ -85,30 +87,72 @@ export const PermissionsPage = () => {
 
         setRoles(rolesData);
         setRolePermissions(permissionsMap);
+        setLoadError('');
 
-        // Select first role by default
-        if (rolesData.length > 0) {
+        // Select first role by default (initial load only)
+        if (!silent && rolesData.length > 0) {
           setSelectedRole(rolesData[0].name);
         }
       } catch (error) {
         console.error('Failed to load permissions', error);
-        // Fallback to defaults
-        const fallbackRoles = Object.keys(DEFAULT_ROLE_PERMISSIONS).map((name, i) => ({ id: i + 1, name }));
-        setRoles(fallbackRoles);
-        setRolePermissions(DEFAULT_ROLE_PERMISSIONS);
-        setSelectedRole(fallbackRoles[0]?.name ?? null);
+        const status = error?.response?.status;
+        if (!silent) {
+          if (status === 403) {
+            // Don't pretend everything is fine with hardcoded fallback data —
+            // that hid the real problem (missing role:read) behind what
+            // looked like a working, just-stale page.
+            setLoadError('You do not have access to view role permissions. Ask an admin to grant role:read or permission:read.');
+            setRoles([]);
+            setRolePermissions({});
+            setSelectedRole(null);
+          } else {
+            // Non-auth failure (e.g. backend down) — keep the old fallback
+            // behavior so the page is still usable for a demo/offline state.
+            const fallbackRoles = Object.keys(DEFAULT_ROLE_PERMISSIONS).map((name, i) => ({ id: i + 1, name }));
+            setRoles(fallbackRoles);
+            setRolePermissions(DEFAULT_ROLE_PERMISSIONS);
+            setSelectedRole(fallbackRoles[0]?.name ?? null);
+          }
+        } else if (status === 403) {
+          // A background poll started failing with 403 (e.g. permission was
+          // revoked while the page was open) — surface it instead of
+          // continuing to silently show the now-incorrect last-good grid.
+          setLoadError('Your access to view role permissions was removed.');
+        }
       } finally {
         setPageLoading(false);
       }
     };
 
     loadPermissions();
+    loadPermissionsRef.current = loadPermissions;
   }, []);
+
+  // The grid above is loaded once on mount and otherwise has no way to learn
+  // that another session (e.g. an Admin editing this same role's
+  // permissions) changed the data. Without this, a Manager who has the
+  // Permissions page open keeps seeing a stale checkbox grid indefinitely,
+  // even though their actual access (governed by the JWT) does update on
+  // the existing token-refresh cycle. Poll on the same cadence so the
+  // displayed grid stays in sync with the database.
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      // Don't clobber in-progress unsaved edits.
+      if (dirty) return;
+      loadPermissionsRef.current?.({ silent: true });
+    }, 2 * 60 * 1000);
+
+    return () => clearInterval(intervalId);
+  }, [dirty]);
 
   if (loading || pageLoading) return null;
   if (!hasPermission('permission:read')) return <Navigate to="/dashboard" replace />;
 
+  // The save action calls PUT /api/roles/{roleName}/permissions, which the
+  // backend gates on permission:write — assigning permissions to a role is
+  // treated as a permission-management action in this system.
   const canEdit = hasPermission('permission:write');
+  const CanDelete =hasPermission('permission:delete')
 
   const resources = [...new Set(ALL_PERMISSIONS.map(p => p.resource))];
 
@@ -208,6 +252,8 @@ export const PermissionsPage = () => {
               ↺ Reset
             </button>
           )}
+
+
           <button
             className="btn btn-primary"
             onClick={handleSave}
@@ -217,6 +263,20 @@ export const PermissionsPage = () => {
           </button>
         </div>
       </div>
+
+      {loadError && (
+        <div style={{
+          marginBottom: 16, padding: '12px 16px',
+          background: 'var(--color-error-subtle)',
+          border: '1px solid rgba(239,68,68,0.3)',
+          borderRadius: 'var(--radius-md)',
+          fontSize: 13, color: 'var(--color-error)',
+          display: 'flex', gap: 8,
+        }}>
+          <span>⚠️</span>
+          <span>{loadError}</span>
+        </div>
+      )}
 
       {/* Saved notice */}
       {saved && (
@@ -255,7 +315,7 @@ export const PermissionsPage = () => {
           return (
             <button
               key={role.name}
-              onClick={() => { setSelectedRole(role.name); setDirty(false); setSaved(false); }}
+              onClick={() => { setSelectedRole(role.name); setDirty(false); setSaved(false); setSaveError(''); }}
               style={{
                 display: 'flex', alignItems: 'center', gap: 8,
                 padding: '10px 18px',

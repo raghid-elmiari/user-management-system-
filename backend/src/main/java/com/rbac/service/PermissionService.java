@@ -9,7 +9,8 @@ import com.rbac.repository.PermissionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import com.rbac.exception.ResourceNotFoundException;
+import java.util.UUID;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -43,5 +44,39 @@ public class PermissionService {
         Permission saved = permissionRepository.save(permission);
         return permissionMapper.toResponse(saved);
     }
+
+    @Transactional
+public void deletePermission(UUID id) {
+    Permission permission = permissionRepository.findById(id)
+            .orElseThrow(() ->
+                    new ResourceNotFoundException("Permission not found"));
+
+    permissionRepository.delete(permission);
+}
+
+@Transactional
+public PermissionResponse updatePermission(UUID id, CreatePermissionRequest request) {
+
+    Permission permission = permissionRepository.findById(id)
+            .orElseThrow(() ->
+                    new ResourceNotFoundException("Permission not found"));
+
+    // Optional: prevent duplicate permission names
+    permissionRepository.findByName(request.getName())
+            .filter(p -> !p.getId().equals(id))
+            .ifPresent(p -> {
+                throw new DuplicateResourceException(
+                        "Permission already exists with name " + request.getName());
+            });
+
+    permission.setName(request.getName());
+    permission.setResource(request.getResource());
+    permission.setAction(request.getAction());
+    permission.setDescription(request.getDescription());
+
+    Permission updated = permissionRepository.save(permission);
+
+    return permissionMapper.toResponse(updated);
+}
 }
 
