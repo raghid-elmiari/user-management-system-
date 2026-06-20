@@ -14,9 +14,13 @@ public class RoleMapper {
                 .id(role.getId())
                 .name(role.getName())
                 .description(role.getDescription())
-                .permissions(role.getRolePermissions().stream()
-                        .map(rolePermission -> rolePermission.getPermission().getName())
-                        .collect(Collectors.toList()))
+                .permissions(
+    role.getRolePermissions() == null
+        ? java.util.List.of()
+        : role.getRolePermissions().stream()
+            .map(rolePermission -> rolePermission.getPermission().getName())
+            .collect(Collectors.toList())
+)
                 .build();
     }
 }
