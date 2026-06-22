@@ -41,7 +41,7 @@ app:
       rpd: 10000
 
 server:
-  port: 8080
+  port: 3000
   connection-timeout: 20000
   max-http-header-size: 8KB
   tomcat:
