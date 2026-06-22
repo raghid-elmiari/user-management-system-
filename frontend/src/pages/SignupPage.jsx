@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { CheckCircle2, AlertTriangle, Eye, EyeOff, UserPlus } from 'lucide-react';
 import { authApi } from '../api/authApi';
 
 export const SignupPage = () => {
@@ -64,7 +65,9 @@ export const SignupPage = () => {
     return (
       <div className="auth-page">
         <div className="auth-card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16, color: 'var(--color-success)' }}>
+            <CheckCircle2 size={44} />
+          </div>
           <h1 className="auth-title">Account Created!</h1>
           <p className="auth-subtitle">
             Your account has been successfully created. You can now log in.
@@ -81,7 +84,7 @@ export const SignupPage = () => {
     <div className="auth-page">
       <div className="auth-card">
         <div className="auth-logo">
-          <div className="auth-logo-icon">📝</div>
+          <div className="auth-logo-icon"><UserPlus size={18} /></div>
           <div className="auth-logo-text">Create<span>Account</span></div>
         </div>
 
@@ -90,7 +93,7 @@ export const SignupPage = () => {
 
         {error && (
           <div className="toast toast-error" style={{ marginBottom: 20 }}>
-            <span>⚠</span>
+            <AlertTriangle size={16} />
             <span>{error}</span>
           </div>
         )}
@@ -151,14 +154,17 @@ export const SignupPage = () => {
               <button
                 type="button"
                 onClick={() => setShowPw(!showPw)}
+                aria-label={showPw ? 'Hide password' : 'Show password'}
                 style={{
                   position: 'absolute', right: 12, top: '50%',
                   transform: 'translateY(-50%)',
                   background: 'none', border: 'none',
+                  color: 'var(--color-text-faint)',
+                  display: 'flex',
                   cursor: 'pointer'
                 }}
               >
-                {showPw ? '🙈' : '👁️'}
+                {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
           </div>

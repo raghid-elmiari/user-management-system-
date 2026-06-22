@@ -2,7 +2,7 @@ spring:
   datasource:
     url: jdbc:mysql://localhost:3306/rbac_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
     username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:81709911}
+    password: ${DB_PASSWORD:moewmoew}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
@@ -53,4 +53,33 @@ server:
     keep-alive-timeout: 15000
     max-keep-alive-requests: 100
 
+redis:
+  host: ${REDIS_HOST:localhost}
+  port: ${REDIS_PORT:6379}
+  password: ${REDIS_PASSWORD:}
+  pool:
+    max-active: 20
+    max-idle: 10
+    min-idle: 5
+    max-wait-ms: 3000
+
+cache:
+  ttl:
+    default:
+      seconds: 900
+    reference:
+      seconds: 3600
+    dashboard:
+      seconds: 300
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    metrics:
+      enabled: true
+    health:
+      show-details: always
 

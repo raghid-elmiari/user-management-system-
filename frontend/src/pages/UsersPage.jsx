@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Navigate } from 'react-router-dom';
+import { Search, SlidersHorizontal, UserX, Pencil, Trash2, Info, ChevronLeft, ChevronRight, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { usersApi } from '../api/usersApi';
 import { rolesApi } from '../api/rolesApi';
@@ -244,15 +245,9 @@ export const UsersPage = () => {
 
       {/* Toast */}
       {toast && (
-        <div style={{
-          position: 'fixed', top: 20, right: 20, zIndex: 9999,
-          padding: '12px 20px', borderRadius: 8, fontWeight: 600, fontSize: 14,
-          background: toast.type === 'error' ? '#fee2e2' : '#d1fae5',
-          color:      toast.type === 'error' ? '#991b1b' : '#065f46',
-          border:     `1px solid ${toast.type === 'error' ? '#fca5a5' : '#6ee7b7'}`,
-          boxShadow: '0 4px 12px rgba(0,0,0,.12)',
-        }}>
-          {toast.type === 'error' ? '❌' : '✅'} {toast.msg}
+        <div className={`toast toast-${toast.type === 'error' ? 'error' : 'success'}`} style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999 }}>
+          {toast.type === 'error' ? <AlertTriangle size={16} /> : <CheckCircle2 size={16} />}
+          <span>{toast.msg}</span>
         </div>
       )}
 
@@ -275,7 +270,7 @@ export const UsersPage = () => {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24, padding: 16, background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)' }}>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <div className="search-bar" style={{ flex: 1, minWidth: 280, maxWidth: 380 }}>
-            <span className="search-bar-icon">🔍</span>
+            <span className="search-bar-icon"><Search size={15} /></span>
             <input
               type="search"
               className="form-control"
@@ -285,7 +280,7 @@ export const UsersPage = () => {
             />
           </div>
           <button className="btn btn-secondary btn-sm" onClick={() => setShowFilters(!showFilters)}>
-            ⚙️ {showFilters ? 'Hide Advanced Filters' : 'Show Advanced Filters'}
+            <SlidersHorizontal size={14} /> {showFilters ? 'Hide Advanced Filters' : 'Show Advanced Filters'}
           </button>
           {(search || filterName || filterUsername || filterEmail || filterActive || filterRole || startDate || endDate) && (
             <button className="btn btn-outline btn-sm" onClick={resetFilters}>Clear All</button>
@@ -399,7 +394,7 @@ export const UsersPage = () => {
               <tr>
                 <td colSpan={canEdit || canDelete ? 8 : 7}>
                   <div className="empty-state" style={{ padding: '48px 0' }}>
-                    <div className="empty-icon" style={{ fontSize: 32 }}>👤</div>
+                    <UserX size={28} style={{ opacity: 0.5 }} />
                     <div className="empty-title" style={{ fontWeight: 700, margin: '8px 0' }}>No users found</div>
                     <div className="empty-text" style={{ color: 'var(--color-text-muted)' }}>
                       Try adjusting your search criteria or filters.
@@ -434,8 +429,8 @@ export const UsersPage = () => {
                   {(canEdit || canDelete) && (
                     <td>
                       <div style={{ display: 'flex', gap: 6 }}>
-                        {canEdit   && <button className="btn btn-secondary btn-sm" onClick={() => openEdit(u)}   title="Edit">✏️</button>}
-                        {canDelete && <button className="btn btn-danger btn-sm"    onClick={() => openDelete(u)} title="Delete">🗑️</button>}
+                        {canEdit   && <button className="btn btn-secondary btn-sm" onClick={() => openEdit(u)}   title="Edit"><Pencil size={14} /></button>}
+                        {canDelete && <button className="btn btn-danger btn-sm"    onClick={() => openDelete(u)} title="Delete"><Trash2 size={14} /></button>}
                       </div>
                     </td>
                   )}
@@ -474,7 +469,7 @@ export const UsersPage = () => {
               disabled={page === 0}
               onClick={() => setPage(prev => Math.max(0, prev - 1))}
             >
-              ◀ Prev
+              <ChevronLeft size={14} /> Prev
             </button>
             
             {Array.from({ length: totalPages }, (_, idx) => (
@@ -493,7 +488,7 @@ export const UsersPage = () => {
               disabled={page >= totalPages - 1}
               onClick={() => setPage(prev => Math.min(totalPages - 1, prev + 1))}
             >
-              Next ▶
+              Next <ChevronRight size={14} />
             </button>
           </div>
         </div>
@@ -508,14 +503,15 @@ export const UsersPage = () => {
           fontSize: 13, color: 'var(--color-text-muted)',
           display: 'flex', gap: 8, alignItems: 'center',
         }}>
-          <span>ℹ️</span> You have read-only access. Contact an admin to make changes.
+          <Info size={16} /> You have read-only access. Contact an admin to make changes.
         </div>
       )}
 
       {/* ── ADD MODAL ── */}
       {showAdd && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center' }}>
-          <div style={{ background:'var(--color-surface)', borderRadius:12, padding:28, width:420, maxWidth:'90vw', boxShadow:'0 8px 32px rgba(0,0,0,0.2)' }}>
+        <div className="modal-backdrop">
+          <div className="modal-content" style={{ maxWidth: 420 }}>
+            <div className="modal-body">
             <h2 style={{ marginBottom:20 }}>Create New User</h2>
 
             <div className="form-group" style={{ marginBottom:14 }}>
@@ -557,14 +553,16 @@ export const UsersPage = () => {
                 {saving ? 'Saving…' : 'Create User'}
               </button>
             </div>
+            </div>
           </div>
         </div>
       )}
 
       {/* ── EDIT MODAL ── */}
       {showEdit && editUser && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center' }}>
-          <div style={{ background:'var(--color-surface)', borderRadius:12, padding:28, width:420, maxWidth:'90vw', boxShadow:'0 8px 32px rgba(0,0,0,0.2)' }}>
+        <div className="modal-backdrop">
+          <div className="modal-content" style={{ maxWidth: 420 }}>
+            <div className="modal-body">
             <h2 style={{ marginBottom:20 }}>Edit User — {editUser.name || editUser.username}</h2>
 
             <div className="form-group" style={{ marginBottom:14 }}>
@@ -606,14 +604,16 @@ export const UsersPage = () => {
                 {saving ? 'Saving…' : 'Save Changes'}
               </button>
             </div>
+            </div>
           </div>
         </div>
       )}
 
       {/* ── DELETE CONFIRM ── */}
       {showDelete && deleteTarget && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center' }}>
-          <div style={{ background:'var(--color-surface)', borderRadius:12, padding:28, width:380, maxWidth:'90vw', boxShadow:'0 8px 32px rgba(0,0,0,0.2)' }}>
+        <div className="modal-backdrop">
+          <div className="modal-content" style={{ maxWidth: 380 }}>
+            <div className="modal-body">
             <h2 style={{ marginBottom:12 }}>Delete User</h2>
             <p style={{ color:'var(--color-text-muted)', marginBottom:24 }}>
               Are you sure you want to delete <strong>{deleteTarget.name || deleteTarget.username}</strong>? This cannot be undone.
@@ -623,6 +623,7 @@ export const UsersPage = () => {
               <button className="btn btn-danger" onClick={handleDelete} disabled={saving}>
                 {saving ? 'Deleting…' : 'Delete'}
               </button>
+            </div>
             </div>
           </div>
         </div>

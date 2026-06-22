@@ -36,7 +36,7 @@ public class AuthService {
     private final UserRoleRepository userRoleRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtService jwtService;
-    private final RoleHierarchyService roleHierarchyService;
+    private final RoleService roleService;
     private final PasswordEncoder passwordEncoder;
 
     @Transactional
@@ -134,7 +134,7 @@ public class AuthService {
         Set<Role> directRoles = user.getUserRoles().stream()
                 .map(UserRole::getRole)
                 .collect(Collectors.toSet());
-        Set<Role> allRoles = roleHierarchyService.getRoleClosure(directRoles);
+        Set<Role> allRoles = roleService.getEffectiveRoleClosure(directRoles);
         List<String> roleNames = allRoles.stream().map(Role::getName).collect(Collectors.toList());
         List<String> permissions = allRoles.stream()
                 .flatMap(role -> role.getRolePermissions().stream())
@@ -166,7 +166,7 @@ public class AuthService {
         Set<Role> directRoles = user.getUserRoles().stream()
             .map(UserRole::getRole)
             .collect(Collectors.toSet());
-        Set<Role> allRoles = roleHierarchyService.getRoleClosure(directRoles);
+        Set<Role> allRoles = roleService.getEffectiveRoleClosure(directRoles);
         List<String> roleNames = allRoles.stream().map(Role::getName).collect(Collectors.toList());
         List<String> permissions = allRoles.stream()
             .flatMap(role -> role.getRolePermissions().stream())
@@ -244,7 +244,7 @@ public class AuthService {
                 .map(UserRole::getRole)
                 .collect(Collectors.toSet());
 
-        Set<Role> allRoles = roleHierarchyService.getRoleClosure(directRoles);
+        Set<Role> allRoles = roleService.getEffectiveRoleClosure(directRoles);
 
         List<String> roleNames = allRoles.stream()
                 .map(Role::getName)

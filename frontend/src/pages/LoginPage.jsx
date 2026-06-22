@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { AlertTriangle, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { authApi } from '../api/authApi';
 
@@ -68,8 +69,8 @@ const handleSubmit = async (e) => {
     <div className="auth-page">
       <div className="auth-card">
         <div className="auth-logo">
-          <div className="auth-logo-icon">🔐</div>
-          <div className="auth-logo-text">Nexus<span>RBAC</span></div>
+          <div className="auth-logo-icon">OG</div>
+          <div className="auth-logo-text">Ogero<span>RBAC</span></div>
         </div>
 
         <h1 className="auth-title">Welcome back</h1>
@@ -80,7 +81,7 @@ const handleSubmit = async (e) => {
             className="toast toast-error animate-slide-down"
             style={{ marginBottom: 20, position: 'static', minWidth: 0, maxWidth: '100%' }}
           >
-            <span>⚠</span>
+            <AlertTriangle size={16} />
             <span>{error}</span>
           </div>
         )}
@@ -132,7 +133,7 @@ const handleSubmit = async (e) => {
                 }}
                 aria-label={showPw ? 'Hide password' : 'Show password'}
               >
-                {showPw ? '🙈' : '👁️'}
+                {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
           </div>
@@ -154,21 +155,10 @@ const handleSubmit = async (e) => {
           <Link to="/signup">Create one</Link>
         </div>
 
-        <div
-          style={{
-            marginTop: 24,
-            padding: '12px 16px',
-            background: 'var(--color-primary-subtle)',
-            border: '1px solid rgba(249,115,22,0.25)',
-            borderRadius: 'var(--radius-md)',
-            fontSize: 13,
-            color: 'var(--color-text-muted)',
-            lineHeight: 1.7,
-          }}
-        >
-          <strong style={{ color: 'var(--color-primary)' }}>Demo credentials</strong><br />
-          Email: <code style={{ color: 'var(--color-text)' }}>admin@example.com</code><br />
-          Password: <code style={{ color: 'var(--color-text)' }}>admin123</code>
+        <div className="auth-note">
+          <strong>Demo credentials</strong><br />
+          Email: <code>admin@example.com</code><br />
+          Password: <code>admin123</code>
         </div>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
+import { LayoutGrid, Users, ShieldCheck, KeyRound, Workflow, LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 export const Navbar = () => {
@@ -8,11 +9,11 @@ export const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const NAV_ITEMS = [
-    { to: '/dashboard',   label: 'Dashboard',   icon: '⊞' },
-    { to: '/users',       label: 'Users',       icon: '👥', permission: 'user:read' },
-    { to: '/roles',       label: 'Roles',       icon: '🛡️', permission: 'role:read' },
-    { to: '/permissions', label: 'Permissions', icon: '🔑', permission: 'permission:read' },
-    { to: '/hierarchy',   label: 'Hierarchy',   icon: '🌳', permission: 'hierarchy:read' },
+    { to: '/dashboard',   label: 'Dashboard',   Icon: LayoutGrid },
+    { to: '/users',       label: 'Users',       Icon: Users, permission: 'user:read' },
+    { to: '/roles',       label: 'Roles',       Icon: ShieldCheck, permission: 'role:read' },
+    { to: '/permissions', label: 'Permissions', Icon: KeyRound, permission: 'permission:read' },
+    { to: '/hierarchy',   label: 'Hierarchy',   Icon: Workflow, permission: 'hierarchy:read' },
   ].filter((item) => !item.permission || hasPermission(item.permission));
 
   const initials = user?.username
@@ -29,19 +30,19 @@ export const Navbar = () => {
       <header className="navbar animate-slide-down">
         {/* Brand */}
         <div className="navbar-brand">
-          <div className="navbar-brand-icon">🔐</div>
-          <div className="navbar-brand-text">Nexus<span>RBAC</span></div>
+          <div className="navbar-brand-icon">OG</div>
+          <div className="navbar-brand-text">Ogero<span>RBAC</span></div>
         </div>
 
         {/* Desktop nav */}
         <ul className="navbar-links" role="navigation" aria-label="Main navigation">
-          {NAV_ITEMS.map(({ to, label, icon }) => (
+          {NAV_ITEMS.map(({ to, label, Icon }) => (
             <li key={to}>
               <NavLink
                 to={to}
                 className={({ isActive }) => `navbar-link${isActive ? ' active' : ''}`}
               >
-                <span className="nav-icon" aria-hidden="true">{icon}</span>
+                <span className="nav-icon" aria-hidden="true"><Icon size={15} /></span>
                 {label}
               </NavLink>
             </li>
@@ -55,21 +56,12 @@ export const Navbar = () => {
               <div className="navbar-avatar" title={user.username}>{initials}</div>
               <span className="navbar-username">{user.username}</span>
               {userRole && (
-                <span style={{
-                  fontSize: 11, fontWeight: 600,
-                  padding: '2px 7px',
-                  borderRadius: 'var(--radius-full)',
-                  background: 'var(--color-primary-subtle)',
-                  color: 'var(--color-primary)',
-                  border: '1px solid rgba(249,115,22,0.3)',
-                }}>
-                  {userRole.replace('ROLE_', '')}
-                </span>
+                <span className="navbar-role-tag">{userRole.replace('ROLE_', '')}</span>
               )}
             </div>
           )}
           <button type="button" className="navbar-logout-btn" onClick={handleLogout} id="logout-button">
-            <span>↩</span> Logout
+            <LogOut size={14} /> Logout
           </button>
 
           {/* Hamburger */}
@@ -85,17 +77,17 @@ export const Navbar = () => {
 
       <nav className={`mobile-nav-drawer${mobileOpen ? ' open' : ''}`}>
         <div className="navbar-brand" style={{ marginBottom: 24 }}>
-          <div className="navbar-brand-icon">🔐</div>
-          <div className="navbar-brand-text">Nexus<span>RBAC</span></div>
+          <div className="navbar-brand-icon">OG</div>
+          <div className="navbar-brand-text">Ogero<span>RBAC</span></div>
         </div>
-        {NAV_ITEMS.map(({ to, label, icon }) => (
+        {NAV_ITEMS.map(({ to, label, Icon }) => (
           <NavLink
             key={to}
             to={to}
             className={({ isActive }) => `navbar-link${isActive ? ' active' : ''}`}
             onClick={() => setMobileOpen(false)}
           >
-            <span className="nav-icon">{icon}</span>
+            <span className="nav-icon"><Icon size={15} /></span>
             {label}
           </NavLink>
         ))}
@@ -107,7 +99,7 @@ export const Navbar = () => {
             </div>
           )}
           <button type="button" className="btn btn-secondary w-full" onClick={handleLogout}>
-            ↩ Logout
+            <LogOut size={14} /> Logout
           </button>
         </div>
       </nav>

@@ -18,7 +18,6 @@ public class DataInitializer implements CommandLineRunner {
     private final PermissionRepository permissionRepository;
     private final UserRoleRepository userRoleRepository;
     private final RolePermissionRepository rolePermissionRepository;
-    private final RoleHierarchyRepository roleHierarchyRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
@@ -70,9 +69,14 @@ Permission roleDelete = createPermissionIfAbsent("role:delete", "role", "delete"
             
 
 
-            createHierarchyLinkIfAbsent(adminRole, managerRole);
-            createHierarchyLinkIfAbsent(managerRole, userRole);
-           
+            // Build the role tree: ROLE_ADMIN is the root, ROLE_MANAGER is its child,
+            // ROLE_USER is MANAGER's child. A role inherits permissions from every
+            // descendant, so admin ends up with manager's and user's permissions too.
+            managerRole.setParentRole(adminRole);
+            roleRepository.save(managerRole);
+            userRole.setParentRole(managerRole);
+            roleRepository.save(userRole);
+
 
             // Admin user
             User admin = User.builder()
@@ -139,17 +143,6 @@ Permission roleDelete = createPermissionIfAbsent("role:delete", "role", "delete"
                     .id(id)
                     .role(role)
                     .permission(permission)
-                    .build());
-        }
-    }
-
-    private void createHierarchyLinkIfAbsent(Role parent, Role child) {
-        RoleHierarchyId id = new RoleHierarchyId(parent.getId(), child.getId());
-        if (!roleHierarchyRepository.existsById(id)) {
-            roleHierarchyRepository.save(RoleHierarchy.builder()
-                    .id(id)
-                    .parentRole(parent)
-                    .childRole(child)
                     .build());
         }
     }

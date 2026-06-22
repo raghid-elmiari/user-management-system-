@@ -1,12 +1,40 @@
 import { useState } from 'react';
 
-export const RoleForm = ({ onSubmit, onCancel, initialValues = {}, loading = false }) => {
+const flattenRoles = (roles) => roles.map((r) => ({ id: r.id, name: r.name }));
+
+/** Collects a role's id plus every descendant id, so it can't be offered as its own parent. */
+const collectDescendantIds = (roles, rootId) => {
+  const byParent = new Map();
+  roles.forEach((r) => {
+    const key = r.parentRoleId ?? null;
+    if (!byParent.has(key)) byParent.set(key, []);
+    byParent.get(key).push(r.id);
+  });
+  const result = new Set([rootId]);
+  const queue = [rootId];
+  while (queue.length) {
+    const current = queue.pop();
+    (byParent.get(current) || []).forEach((childId) => {
+      if (!result.has(childId)) {
+        result.add(childId);
+        queue.push(childId);
+      }
+    });
+  }
+  return result;
+};
+
+export const RoleForm = ({ onSubmit, onCancel, initialValues = {}, allRoles = [], loading = false }) => {
   const [name, setName] = useState(initialValues.name || '');
   const [description, setDescription] = useState(initialValues.description || '');
+  const [parentRoleId, setParentRoleId] = useState(initialValues.parentRoleId || '');
+
+  const blockedIds = initialValues.id ? collectDescendantIds(allRoles, initialValues.id) : new Set();
+  const parentOptions = flattenRoles(allRoles).filter((r) => !blockedIds.has(r.id));
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit({ name, description });
+    onSubmit({ name, description, parentRoleId: parentRoleId || null });
   };
 
   return (
@@ -35,6 +63,24 @@ export const RoleForm = ({ onSubmit, onCancel, initialValues = {}, loading = fal
           disabled={loading}
           style={{ resize: 'vertical' }}
         />
+      </div>
+      <div className="form-group">
+        <label className="form-label" htmlFor="role-parent">Parent Role</label>
+        <select
+          id="role-parent"
+          className="form-control"
+          value={parentRoleId}
+          onChange={(e) => setParentRoleId(e.target.value)}
+          disabled={loading}
+        >
+          <option value="">No parent — root role</option>
+          {parentOptions.map((r) => (
+            <option key={r.id} value={r.id}>{r.name}</option>
+          ))}
+        </select>
+        <span className="form-hint">
+          Permissions assigned to this role are also granted to its parent and every role above it.
+        </span>
       </div>
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
         {onCancel && (

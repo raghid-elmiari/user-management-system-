@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { Users, ShieldCheck, KeyRound, CheckCircle2, UserPlus, Workflow, Radio } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { dashboardApi } from "../api/dashboardApi";
 import { permissionsApi } from "../api/permissionsApi";
@@ -12,40 +13,40 @@ const ROLE_CONFIG = {
     greeting: "Admin",
     subtitle: "Full system access — manage users, roles, permissions and hierarchy.",
     stats: [
-      { key: 'totalUsers', icon: '👥', label: 'Total Users', value: '—', iconClass: 'stat-icon-orange' },
-      { key: 'activeRoles', icon: '🛡️', label: 'Active Roles', value: '—', iconClass: 'stat-icon-blue' },
-      { key: 'totalPermissions', icon: '🔑', label: 'Permissions', value: '—', iconClass: 'stat-icon-green' },
-      { key: 'activeSessions', icon: '✅', label: 'Active Sessions', value: '—', iconClass: 'stat-icon-yellow' },
+      { key: 'totalUsers', Icon: Users, label: 'Total Users', value: '—', iconClass: 'stat-icon-orange' },
+      { key: 'activeRoles', Icon: ShieldCheck, label: 'Active Roles', value: '—', iconClass: 'stat-icon-blue' },
+      { key: 'totalPermissions', Icon: KeyRound, label: 'Permissions', value: '—', iconClass: 'stat-icon-green' },
+      { key: 'activeSessions', Icon: CheckCircle2, label: 'Active Sessions', value: '—', iconClass: 'stat-icon-yellow' },
     ],
     actions: [
-      { icon: '👤', title: 'Add New User',        desc: 'Create and invite a new team member',    to: '/users',       color: 'var(--orange-500)',    permission: 'user:write' },
-      { icon: '🛡️', title: 'Create Role',         desc: 'Define a new role with permissions',     to: '/roles',       color: 'var(--color-info)',    permission: 'role:write' },
-      { icon: '🔑', title: 'Manage Permissions',  desc: 'Configure permission scopes',            to: '/permissions', color: 'var(--color-success)', permission: 'permission:write' },
-      { icon: '🌳', title: 'View Hierarchy',      desc: 'See role parent-child relationships',    to: '/hierarchy',   color: 'var(--color-warning)', permission: 'hierarchy:read' },
+      { Icon: UserPlus, title: 'Add New User',        desc: 'Create and invite a new team member',    to: '/users',       color: 'var(--orange-500)',    permission: 'user:write' },
+      { Icon: ShieldCheck, title: 'Create Role',      desc: 'Define a new role with permissions',     to: '/roles',       color: 'var(--color-info)',    permission: 'role:write' },
+      { Icon: KeyRound, title: 'Manage Permissions',  desc: 'Configure permission scopes',            to: '/permissions', color: 'var(--color-success)', permission: 'permission:write' },
+      { Icon: Workflow, title: 'View Hierarchy',      desc: 'See role parent-child relationships',    to: '/hierarchy',   color: 'var(--color-warning)', permission: 'hierarchy:read' },
     ],
   },
   ROLE_MANAGER: {
     greeting: "Manager",
     subtitle: "Manage your team — view users and roles assigned to your group.",
     stats: [
-      { key: 'totalUsers', icon: '👥', label: 'Team Members', value: '—', iconClass: 'stat-icon-orange' },
-      { key: 'activeRoles', icon: '🛡️', label: 'Assigned Roles', value: '—', iconClass: 'stat-icon-blue' },
-      { key: 'activeSessions', icon: '✅', label: 'Active Sessions', value: '—', iconClass: 'stat-icon-yellow' },
+      { key: 'totalUsers', Icon: Users, label: 'Team Members', value: '—', iconClass: 'stat-icon-orange' },
+      { key: 'activeRoles', Icon: ShieldCheck, label: 'Assigned Roles', value: '—', iconClass: 'stat-icon-blue' },
+      { key: 'activeSessions', Icon: CheckCircle2, label: 'Active Sessions', value: '—', iconClass: 'stat-icon-yellow' },
     ],
     actions: [
-      { icon: '👤', title: 'View Users',   desc: 'Browse and manage team members', to: '/users',     color: 'var(--orange-500)', permission: 'user:read' },
-      { icon: '🛡️', title: 'View Roles',   desc: 'See roles available in the system', to: '/roles',  color: 'var(--color-info)', permission: 'role:read' },
+      { Icon: Users, title: 'View Users',      desc: 'Browse and manage team members', to: '/users',     color: 'var(--orange-500)', permission: 'user:read' },
+      { Icon: ShieldCheck, title: 'View Roles', desc: 'See roles available in the system', to: '/roles',  color: 'var(--color-info)', permission: 'role:read' },
     ],
   },
   ROLE_USER: {
     greeting: "User",
     subtitle: "Welcome! Here's a summary of your access.",
     stats: [
-      { key: 'userRole', icon: '🛡️', label: 'Your Role', value: '—', iconClass: 'stat-icon-blue' },
-      { key: 'userPermissions', icon: '🔑', label: 'Your Permissions', value: '—', iconClass: 'stat-icon-green' },
+      { key: 'userRole', Icon: ShieldCheck, label: 'Your Role', value: '—', iconClass: 'stat-icon-blue' },
+      { key: 'userPermissions', Icon: KeyRound, label: 'Your Permissions', value: '—', iconClass: 'stat-icon-green' },
     ],
     actions: [
-      { icon: '🌳', title: 'View Hierarchy', desc: 'See where your role fits', to: '/hierarchy', color: 'var(--color-warning)', permission: 'hierarchy:read' },
+      { Icon: Workflow, title: 'View Hierarchy', desc: 'See where your role fits', to: '/hierarchy', color: 'var(--color-warning)', permission: 'hierarchy:read' },
     ],
   },
 };
@@ -159,17 +160,7 @@ export const DashboardPage = () => {
           <p className="page-subtitle">{config.subtitle}</p>
         </div>
         {userRole && (
-          <div style={{
-            padding: '6px 14px',
-            background: 'var(--color-primary-subtle)',
-            border: '1px solid rgba(249,115,22,0.3)',
-            borderRadius: 'var(--radius-full)',
-            fontSize: 13,
-            fontWeight: 600,
-            color: 'var(--orange-500)',
-          }}>
-            {userRole.replace('ROLE_', '')}
-          </div>
+          <div className="badge badge-orange">{userRole.replace('ROLE_', '')}</div>
         )}
       </div>
 
@@ -177,7 +168,7 @@ export const DashboardPage = () => {
       <div className="stats-grid">
         {stats.map((s, i) => (
           <div className="stat-card" key={s.label} style={{ animationDelay: `${i * 60}ms` }}>
-            <div className={`stat-icon ${s.iconClass}`}>{s.icon}</div>
+            <div className={`stat-icon ${s.iconClass}`}><s.Icon size={20} /></div>
             <div>
               <div className="stat-value">{s.value}</div>
               <div className="stat-label">{s.label}</div>
@@ -207,10 +198,10 @@ export const DashboardPage = () => {
                 width: 40, height: 40,
                 borderRadius: 'var(--radius-md)',
                 background: `${a.color}18`,
+                color: a.color,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 20,
               }}>
-                {a.icon}
+                <a.Icon size={18} />
               </div>
               <div>
                 <div style={{ fontWeight: 700, marginBottom: 3 }}>{a.title}</div>
@@ -223,17 +214,23 @@ export const DashboardPage = () => {
 
       {/* System info */}
       <div style={{
-        padding: '18px 24px',
-        background: 'var(--color-primary-subtle)',
-        border: '1px solid rgba(249,115,22,0.25)',
+        padding: '16px 22px',
+        background: 'var(--color-surface)',
+        border: '1px solid var(--color-border)',
         borderRadius: 'var(--radius-lg)',
         display: 'flex', alignItems: 'center', gap: 14,
       }}>
-        <span style={{ fontSize: 28 }}>🚀</span>
+        <div style={{
+          width: 40, height: 40, borderRadius: 'var(--radius-md)',
+          background: 'var(--color-success-subtle)', color: 'var(--color-success)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        }}>
+          <Radio size={18} />
+        </div>
         <div>
           <div style={{ fontWeight: 700, marginBottom: 2 }}>System is running</div>
           <div style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>
-            NexusRBAC — Role-Based Access Control System &nbsp;·&nbsp; v1.0
+            Ogero RBAC — Role-Based Access Control System &nbsp;·&nbsp; v2.0
           </div>
         </div>
       </div>

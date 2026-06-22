@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Navigate } from 'react-router-dom';
+import { RotateCcw, Save, AlertTriangle, CheckCircle2, Info, Check, Crown, Briefcase, User, Wrench, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { rolesApi } from '../api/rolesApi';
 
@@ -37,17 +38,17 @@ const ACTION_COLORS = { read: 'badge-blue', write: 'badge-orange', delete: 'badg
 
 // Generate a consistent color/icon for dynamic roles
 const ROLE_COLOR_PALETTE = [
-  { color: 'var(--orange-500)', bg: 'var(--color-primary-subtle)', icon: '👑' },
-  { color: 'var(--color-info)', bg: 'var(--color-info-subtle)', icon: '🧑‍💼' },
-  { color: 'var(--color-success)', bg: 'var(--color-success-subtle)', icon: '👤' },
-  { color: 'var(--color-warning)', bg: 'var(--color-warning-subtle)', icon: '🔧' },
-  { color: 'var(--color-error)', bg: 'var(--color-error-subtle)', icon: '🛡️' },
+  { color: 'var(--orange-500)', bg: 'var(--color-primary-subtle)', Icon: Crown },
+  { color: 'var(--color-info)', bg: 'var(--color-info-subtle)', Icon: Briefcase },
+  { color: 'var(--color-success)', bg: 'var(--color-success-subtle)', Icon: User },
+  { color: 'var(--color-warning)', bg: 'var(--color-warning-subtle)', Icon: Wrench },
+  { color: 'var(--color-error)', bg: 'var(--color-error-subtle)', Icon: ShieldCheck },
 ];
 
 const STATIC_ROLE_META = {
-  ROLE_ADMIN: { label: 'Admin', color: 'var(--orange-500)', bg: 'var(--color-primary-subtle)', icon: '👑' },
-  ROLE_MANAGER: { label: 'Manager', color: 'var(--color-info)', bg: 'var(--color-info-subtle)', icon: '🧑‍💼' },
-  ROLE_USER: { label: 'User', color: 'var(--color-success)', bg: 'var(--color-success-subtle)', icon: '👤' },
+  ROLE_ADMIN: { label: 'Admin', color: 'var(--orange-500)', bg: 'var(--color-primary-subtle)', Icon: Crown },
+  ROLE_MANAGER: { label: 'Manager', color: 'var(--color-info)', bg: 'var(--color-info-subtle)', Icon: Briefcase },
+  ROLE_USER: { label: 'User', color: 'var(--color-success)', bg: 'var(--color-success-subtle)', Icon: User },
 };
 
 const getRoleMeta = (roleName, index) => {
@@ -249,17 +250,16 @@ export const PermissionsPage = () => {
         <div style={{ display: 'flex', gap: 8 }}>
           {dirty && canEdit && (
             <button className="btn btn-secondary" onClick={handleReset}>
-              ↺ Reset
+              <RotateCcw size={14} /> Reset
             </button>
           )}
-
 
           <button
             className="btn btn-primary"
             onClick={handleSave}
             disabled={!dirty || !canEdit}
           >
-            💾 Save Changes
+            <Save size={14} /> Save Changes
           </button>
         </div>
       </div>
@@ -273,7 +273,7 @@ export const PermissionsPage = () => {
           fontSize: 13, color: 'var(--color-error)',
           display: 'flex', gap: 8,
         }}>
-          <span>⚠️</span>
+          <AlertTriangle size={16} />
           <span>{loadError}</span>
         </div>
       )}
@@ -288,7 +288,7 @@ export const PermissionsPage = () => {
           fontSize: 13, color: 'var(--color-success)',
           display: 'flex', gap: 8, alignItems: 'center',
         }}>
-          ✅ Permissions saved for {meta?.label}
+          <CheckCircle2 size={16} /> Permissions saved for {meta?.label}
         </div>
       )}
 
@@ -301,7 +301,7 @@ export const PermissionsPage = () => {
           fontSize: 13, color: 'var(--color-warning)',
           display: 'flex', gap: 8, alignItems: 'center',
         }}>
-          <span>⚠️</span>
+          <AlertTriangle size={16} />
           <span>{saveError}</span>
         </div>
       )}
@@ -330,7 +330,7 @@ export const PermissionsPage = () => {
                 opacity: canEdit ? 1 : 0.85,
               }}
             >
-              <span>{m.icon}</span>
+              <m.Icon size={15} />
               {m.label}
               <span style={{
                 padding: '1px 7px',
@@ -357,7 +357,7 @@ export const PermissionsPage = () => {
           marginBottom: 20,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 22 }}>{meta.icon}</span>
+            <meta.Icon size={20} color={meta.color} />
             <div>
               <div style={{ fontWeight: 700, color: meta.color }}>{meta.label}</div>
               <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
@@ -440,7 +440,7 @@ export const PermissionsPage = () => {
                   <td style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>{p.description}</td>
                   <td style={{ textAlign: 'center' }}>
                     {granted
-                      ? <span style={{ color: 'var(--color-success)', fontWeight: 700 }}>✓</span>
+                      ? <Check size={15} style={{ color: 'var(--color-success)' }} />
                       : <span style={{ color: 'var(--color-text-faint)' }}>—</span>}
                   </td>
                 </tr>
@@ -459,7 +459,7 @@ export const PermissionsPage = () => {
         fontSize: 13, color: 'var(--color-text-muted)',
         display: 'flex', gap: 8,
       }}>
-        <span>ℹ️</span>
+        <Info size={16} />
         <span>
           {canEdit
             ? 'Changes only take effect after saving. Click a row or the checkbox to toggle a permission.'

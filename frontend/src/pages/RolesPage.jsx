@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Navigate } from 'react-router-dom';
+import { Pencil, Trash2, KeyRound } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { rolesApi } from '../api/rolesApi';
 import { Modal } from '../components/common/Modal';
@@ -173,11 +174,16 @@ export const RolesPage = () => {
               {(canEdit || canDelete) && (
                 <div style={{ display: 'flex', gap: 6 }}>
                   {canEdit && (
-                    <button onClick={() => openEditModal(role)}>✏️</button>
+                    <button className="btn btn-ghost btn-icon" onClick={() => openEditModal(role)} title="Edit" aria-label="Edit role">
+                      <Pencil size={15} />
+                    </button>
                   )}
 
                   {canDelete && (
                     <button
+                      className="btn btn-ghost btn-icon"
+                      title="Delete"
+                      aria-label="Delete role"
                       onClick={async () => {
                         await rolesApi.delete(role.id);
                         setRoles((prev) =>
@@ -185,7 +191,7 @@ export const RolesPage = () => {
                         );
                       }}
                     >
-                      🗑️
+                      <Trash2 size={15} />
                     </button>
                   )}
                 </div>
@@ -194,7 +200,9 @@ export const RolesPage = () => {
 
             <p>{role.description}</p>
 
-            <span>🔑 {role.permissions} permissions</span>
+            <span className="flex items-center gap-2" style={{ marginTop: 8 }}>
+              <KeyRound size={14} /> {role.permissions} permissions
+            </span>
 
             {/* ✅ FIXED BUTTON */}
             <button
@@ -215,6 +223,7 @@ export const RolesPage = () => {
       >
         <RoleForm
           initialValues={editingRole ?? {}}
+          allRoles={roles}
           onSubmit={handleFormSubmit}
           onCancel={closeModal}
           loading={formLoading}

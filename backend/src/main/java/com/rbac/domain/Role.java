@@ -3,6 +3,7 @@ package com.rbac.domain;
 import javax.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 import java.time.OffsetDateTime;
 import java.util.HashSet;
 import java.util.Set;
@@ -16,6 +17,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 public class Role {
+
     @Id
     @GeneratedValue(generator = "UUID")
     @org.hibernate.annotations.GenericGenerator(
@@ -30,17 +32,35 @@ public class Role {
 
     private String description;
 
-@Builder.Default
-@OneToMany(
-    mappedBy = "role",
-    cascade = CascadeType.ALL,
-    orphanRemoval = true,
-    fetch = FetchType.LAZY
-)
+    // ── Tree hierarchy: each role may have exactly one parent ──────────────
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_role_id", columnDefinition = "BINARY(16)")
+    private Role parentRole;
 
-private Set<RolePermission> rolePermissions = new HashSet<>();
+    @Builder.Default
+    @OneToMany(
+        mappedBy = "parentRole",
+        cascade = CascadeType.ALL,
+        orphanRemoval = false,
+        fetch = FetchType.LAZY
+    )
+    private Set<Role> childRoles = new HashSet<>();
+
+    // ── Direct role-permission assignments ─────────────────────────────────
+    @Builder.Default
+    @OneToMany(
+        mappedBy = "role",
+        cascade = CascadeType.ALL,
+        orphanRemoval = true,
+        fetch = FetchType.LAZY
+    )
+    private Set<RolePermission> rolePermissions = new HashSet<>();
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private OffsetDateTime updatedAt;
 }
