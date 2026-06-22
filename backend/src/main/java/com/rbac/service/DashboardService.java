@@ -8,6 +8,7 @@ import com.rbac.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.Cacheable;
 
 import java.time.OffsetDateTime;
 
@@ -21,6 +22,7 @@ public class DashboardService {
     private final RefreshTokenRepository refreshTokenRepository;
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "dashboard", key = "'stats'")
     public DashboardStatsResponse getStats() {
         return DashboardStatsResponse.builder()
                 .totalUsers(userRepository.count())

@@ -25,6 +25,8 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
@@ -44,6 +46,7 @@ public class UserService {
     private final PasswordEncoder    passwordEncoder;
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "users", key = "'list'")
     public List<UserResponse> getAllUsers() {
         return userRepository.findAll().stream()
                 .map(userMapper::toResponse)
@@ -69,6 +72,7 @@ public class UserService {
     }
 
     @Transactional
+    @CacheEvict(value = {"users","dashboard"}, allEntries = true)
     public UserResponse createUser(CreateUserRequest request) {
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
             throw new DuplicateResourceException("User already exists with email: " + request.getEmail());
@@ -95,6 +99,7 @@ public class UserService {
     }
 
     @Transactional
+    @CacheEvict(value = {"users","dashboard"}, allEntries = true)
     public UserResponse updateProfile(UUID userId, UpdateUserRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + userId));
@@ -134,7 +139,8 @@ public class UserService {
     }
 
   @Transactional
-    public UserResponse updateStatus(UUID userId, boolean active) {
+        @CacheEvict(value = {"users","dashboard"}, allEntries = true)
+        public UserResponse updateStatus(UUID userId, boolean active) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + userId));
         user.setActive(active);
@@ -142,6 +148,7 @@ public class UserService {
     }
 
     @Transactional
+    @CacheEvict(value = {"users","dashboard"}, allEntries = true)
     public void deleteUser(UUID userId) {
         if (!userRepository.existsById(userId)) {
             throw new ResourceNotFoundException("User not found with id " + userId);
@@ -150,6 +157,7 @@ public class UserService {
     }
     
     @Transactional
+    @CacheEvict(value = {"users","roles","dashboard"}, allEntries = true)
     public UserResponse assignRole(UUID userId, AssignRoleRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + userId));
@@ -176,6 +184,7 @@ public class UserService {
     }
 
     @Transactional
+    @CacheEvict(value = {"users","roles","dashboard"}, allEntries = true)
     public UserResponse removeRole(UUID userId, UUID roleId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + userId));

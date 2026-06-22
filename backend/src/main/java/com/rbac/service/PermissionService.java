@@ -8,6 +8,8 @@ import com.rbac.mapper.PermissionMapper;
 import com.rbac.repository.PermissionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.transaction.annotation.Transactional;
 import com.rbac.exception.ResourceNotFoundException;
 import java.util.UUID;
@@ -22,6 +24,7 @@ public class PermissionService {
     private final PermissionMapper permissionMapper;
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "permissions", key = "'list'")
     public List<PermissionResponse> getAllPermissions() {
         return permissionRepository.findAll().stream()
                 .map(permissionMapper::toResponse)
@@ -29,6 +32,7 @@ public class PermissionService {
     }
 
     @Transactional
+    @CacheEvict(value = {"permissions","dashboard"}, allEntries = true)
     public PermissionResponse createPermission(CreatePermissionRequest request) {
         if (permissionRepository.findByName(request.getName()).isPresent()) {
             throw new DuplicateResourceException("Permission already exists with name " + request.getName());
@@ -46,7 +50,8 @@ public class PermissionService {
     }
 
     @Transactional
-public void deletePermission(UUID id) {
+    @CacheEvict(value = {"permissions","dashboard"}, allEntries = true)
+    public void deletePermission(UUID id) {
     Permission permission = permissionRepository.findById(id)
             .orElseThrow(() ->
                     new ResourceNotFoundException("Permission not found"));
@@ -55,7 +60,10 @@ public void deletePermission(UUID id) {
 }
 
 @Transactional
+@CacheEvict(value = {"permissions","dashboard"}, allEntries = true)
 public PermissionResponse updatePermission(UUID id, CreatePermissionRequest request) {
+    // evict permission lists and dashboard aggregates
+    // (annotation applied to method signature)
 
     Permission permission = permissionRepository.findById(id)
             .orElseThrow(() ->
@@ -75,7 +83,6 @@ public PermissionResponse updatePermission(UUID id, CreatePermissionRequest requ
     permission.setDescription(request.getDescription());
 
     Permission updated = permissionRepository.save(permission);
-
     return permissionMapper.toResponse(updated);
 }
 }

@@ -18,6 +18,8 @@ import com.rbac.repository.UserRoleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 
 import java.util.HashSet;
 import java.util.List;
@@ -37,6 +39,7 @@ public class RoleService {
     private final RoleHierarchyRepository roleHierarchyRepository;    // ← added
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "roles", key = "'list'")
     public List<RoleResponse> getAllRoles() {
         return roleRepository.findAll().stream()
                 .map(roleMapper::toResponse)
@@ -44,6 +47,7 @@ public class RoleService {
     }
 
     @Transactional
+    @CacheEvict(value = {"roles","dashboard"}, allEntries = true)
     public RoleResponse createRole(CreateRoleRequest request) {
         if (roleRepository.findByName(request.getName()).isPresent()) {
             throw new DuplicateResourceException("Role already exists with name " + request.getName());
@@ -59,6 +63,7 @@ public class RoleService {
     }
 
     @Transactional
+    @CacheEvict(value = {"roles","dashboard"}, allEntries = true)
     public RoleResponse updateRolePermissions(String roleName, UpdateRolePermissionsRequest request) {
         Role role = roleRepository.findByName(roleName)
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found with name " + roleName));
@@ -92,6 +97,7 @@ public class RoleService {
     }
 
     @Transactional
+    @CacheEvict(value = {"roles","dashboard"}, allEntries = true)
     public RoleResponse updateRole(UUID id, CreateRoleRequest request) {
         Role role = roleRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found"));
@@ -104,6 +110,7 @@ public class RoleService {
     }
 
     @Transactional
+    @CacheEvict(value = {"roles","dashboard"}, allEntries = true)
     public void deleteRole(UUID id) {
         Role role = roleRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found"));

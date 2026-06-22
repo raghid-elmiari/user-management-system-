@@ -11,6 +11,8 @@ import com.rbac.repository.RoleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 
 import java.util.*;
 
@@ -22,6 +24,7 @@ public class RoleHierarchyService {
     private final RoleRepository roleRepository;
 
     @Transactional
+    @CacheEvict(value = {"roleHierarchy","roles","dashboard"}, allEntries = true)
     public void addHierarchyLink(UUID parentRoleId, UUID childRoleId) {
         if (parentRoleId.equals(childRoleId)) {
             throw new CyclicHierarchyException("A role cannot be a parent of itself.");
@@ -52,6 +55,7 @@ public class RoleHierarchyService {
     }
 
     @Transactional
+    @CacheEvict(value = {"roleHierarchy","roles","dashboard"}, allEntries = true)
     public void removeHierarchyLink(UUID parentRoleId, UUID childRoleId) {
         RoleHierarchyId id = new RoleHierarchyId(parentRoleId, childRoleId);
         RoleHierarchy link = hierarchyRepository.findById(id)
@@ -60,6 +64,7 @@ public class RoleHierarchyService {
     }
 
         @Transactional(readOnly = true)
+        @Cacheable(value = "roleHierarchy", key = "'list'")
         public List<RoleHierarchyResponse> getHierarchyLinks() {
         return hierarchyRepository.findAll().stream()
             .map(link -> RoleHierarchyResponse.builder()
