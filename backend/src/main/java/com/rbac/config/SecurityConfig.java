@@ -3,6 +3,7 @@ package com.rbac.config;
 import com.rbac.security.JwtAuthFilter;
 import com.rbac.security.IpRestrictionFilter;
 import com.rbac.security.RateLimitingFilter;
+import com.rbac.security.RequestLoggingFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -27,6 +28,7 @@ public class SecurityConfig {
     private final JwtAuthFilter jwtAuthFilter;
     private final IpRestrictionFilter ipRestrictionFilter;
     private final RateLimitingFilter rateLimitingFilter;
+    private final RequestLoggingFilter requestLoggingFilter;
 
     @Value("${app.security.bcrypt.strength:12}")
     private int bcryptStrength;
@@ -42,9 +44,10 @@ public class SecurityConfig {
                     .antMatchers("/actuator/health").permitAll()
                     .anyRequest().authenticated()
                     .and()
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(rateLimitingFilter, JwtAuthFilter.class)
-                .addFilterBefore(ipRestrictionFilter, RateLimitingFilter.class)
+                .addFilterBefore(ipRestrictionFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(rateLimitingFilter, IpRestrictionFilter.class)
+                .addFilterAfter(jwtAuthFilter, RateLimitingFilter.class)
+                .addFilterAfter(requestLoggingFilter, JwtAuthFilter.class)
                 .build();
     }
 
@@ -58,4 +61,3 @@ public class SecurityConfig {
         return config.getAuthenticationManager();
     }
 }
-

@@ -15,9 +15,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.List;
-import java.util.stream.Collectors;
 import java.util.ArrayList;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -40,6 +39,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         }
 
         String token = authHeader.substring(7);
+
         if (!jwtService.isTokenValid(token)) {
             filterChain.doFilter(request, response);
             return;
@@ -47,29 +47,38 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         if (SecurityContextHolder.getContext().getAuthentication() == null) {
             String userId = jwtService.extractClaim(token, Claims::getSubject);
-            List<String> permissions = jwtService.extractClaim(token, claims -> (List<String>) claims.get("permissions"));
-            List<SimpleGrantedAuthority> authorities = permissions.stream()
-                    .map(permission -> new SimpleGrantedAuthority("PERMISSION_" + permission))
-                    .collect(Collectors.toList());
+
+            List<String> permissions = jwtService.extractClaim(
+                    token,
+                    claims -> (List<String>) claims.get("permissions")
+            );
+
+            List<String> roles = jwtService.extractClaim(
+                    token,
+                    claims -> (List<String>) claims.get("roles")
+            );
+
+            List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+
+            if (permissions != null) {
+                permissions.forEach(permission ->
+                        authorities.add(new SimpleGrantedAuthority("PERMISSION_" + permission))
+                );
+            }
+
+            if (roles != null) {
+                roles.forEach(role ->
+                        authorities.add(new SimpleGrantedAuthority(role))
+                );
+            }
 
             UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(userId, null, authorities);
+
             authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(authentication);
         }
 
         filterChain.doFilter(request, response);
-        List<String> permissions = jwtService.extractClaim(token,
-    claims -> (List<String>) claims.get("permissions"));
-List<String> roles = jwtService.extractClaim(token,
-    claims -> (List<String>) claims.get("roles"));  // add roles to JWT in AuthService too
-
-List<SimpleGrantedAuthority> authorities = new ArrayList<>();
-if (permissions != null)
-    permissions.forEach(p -> authorities.add(new SimpleGrantedAuthority("PERMISSION_" + p)));
-if (roles != null)
-    roles.forEach(r -> authorities.add(new SimpleGrantedAuthority(r)));
     }
-    
 }
-

@@ -15,6 +15,7 @@ const ALL_PERMISSIONS = [
   { id: 'permission:read', resource: 'permission', action: 'read', description: 'View permission definitions' },
   { id: 'permission:write', resource: 'permission', action: 'write', description: 'Create and update permissions' },
   { id: 'hierarchy:read', resource: 'hierarchy', action: 'read', description: 'View role hierarchy tree' },
+  { id: 'request-log:read', resource: 'request-log', action: 'read', description: 'Read request logs' },
 ];
 
 // Default permission assignments per role (fallback only)
@@ -30,7 +31,7 @@ const DEFAULT_ROLE_PERMISSIONS = {
     'hierarchy:read',
   ],
   ROLE_USER: [
-    
+
   ],
 };
 
@@ -153,15 +154,20 @@ export const PermissionsPage = () => {
   // backend gates on permission:write — assigning permissions to a role is
   // treated as a permission-management action in this system.
   const canEdit = hasPermission('permission:write');
-  const CanDelete =hasPermission('permission:delete')
+  const CanDelete = hasPermission('permission:delete')
 
-  const resources = [...new Set(ALL_PERMISSIONS.map(p => p.resource))];
+  const visiblePermissions =
+    selectedRole === 'ROLE_ADMIN'
+      ? ALL_PERMISSIONS
+      : ALL_PERMISSIONS.filter(p => p.id !== 'request-log:read');
+
+  const resources = [...new Set(visiblePermissions.map(p => p.resource))];
 
   const currentPerms = selectedRole ? (rolePermissions[selectedRole] ?? []) : [];
 
   const filtered = filterResource
-    ? ALL_PERMISSIONS.filter(p => p.resource === filterResource)
-    : ALL_PERMISSIONS;
+    ? visiblePermissions.filter(p => p.resource === filterResource)
+    : visiblePermissions;
 
   const toggle = (permId) => {
     if (!canEdit || !selectedRole) return;
@@ -361,7 +367,7 @@ export const PermissionsPage = () => {
             <div>
               <div style={{ fontWeight: 700, color: meta.color }}>{meta.label}</div>
               <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
-                {currentPerms.length} of {ALL_PERMISSIONS.length} permissions granted
+               {currentPerms.filter(p => visiblePermissions.some(vp => vp.id === p)).length} of {visiblePermissions.length} permissions granted
               </div>
             </div>
           </div>

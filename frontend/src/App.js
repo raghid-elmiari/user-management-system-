@@ -10,6 +10,7 @@ import { UsersPage } from './pages/UsersPage';
 import { RolesPage } from './pages/RolesPage';
 import { PermissionsPage } from './pages/PermissionsPage';
 import { HierarchyPage } from './pages/HierarchyPage';
+import { RequestLogsPage } from './pages/RequestLogsPage';
 
 function App() {
   return (
@@ -58,9 +59,20 @@ function App() {
                 </PermissionGate>
               }
             />
+            <Route
+              path="/request-logs"
+              element={
+                <PermissionGate permission="request-log:read" redirectTo="/dashboard">
+                  <RequestLogsPage />
+                </PermissionGate>
+              }
+            />
           </Route>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
         </Routes>
+
+
       </AuthProvider>
     </Router>
   );

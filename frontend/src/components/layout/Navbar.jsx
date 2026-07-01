@@ -1,6 +1,14 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutGrid, Users, ShieldCheck, KeyRound, Workflow, LogOut } from 'lucide-react';
+import {
+  LayoutGrid,
+  Users,
+  ShieldCheck,
+  KeyRound,
+  Workflow,
+  LogOut,
+  FileText,
+} from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 export const Navbar = () => {
@@ -9,11 +17,12 @@ export const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const NAV_ITEMS = [
-    { to: '/dashboard',   label: 'Dashboard',   Icon: LayoutGrid },
-    { to: '/users',       label: 'Users',       Icon: Users, permission: 'user:read' },
-    { to: '/roles',       label: 'Roles',       Icon: ShieldCheck, permission: 'role:read' },
+    { to: '/dashboard', label: 'Dashboard', Icon: LayoutGrid },
+    { to: '/users', label: 'Users', Icon: Users, permission: 'user:read' },
+    { to: '/roles', label: 'Roles', Icon: ShieldCheck, permission: 'role:read' },
     { to: '/permissions', label: 'Permissions', Icon: KeyRound, permission: 'permission:read' },
-    { to: '/hierarchy',   label: 'Hierarchy',   Icon: Workflow, permission: 'hierarchy:read' },
+    { to: '/hierarchy', label: 'Hierarchy', Icon: Workflow, permission: 'hierarchy:read' },
+    { to: '/request-logs', label: 'Request Logs', Icon: FileText, permission: 'request-log:read' },
   ].filter((item) => !item.permission || hasPermission(item.permission));
 
   const initials = user?.username
@@ -28,13 +37,11 @@ export const Navbar = () => {
   return (
     <>
       <header className="navbar animate-slide-down">
-        {/* Brand */}
         <div className="navbar-brand">
           <div className="navbar-brand-icon">OG</div>
           <div className="navbar-brand-text">Ogero<span>RBAC</span></div>
         </div>
 
-        {/* Desktop nav */}
         <ul className="navbar-links" role="navigation" aria-label="Main navigation">
           {NAV_ITEMS.map(({ to, label, Icon }) => (
             <li key={to}>
@@ -42,14 +49,15 @@ export const Navbar = () => {
                 to={to}
                 className={({ isActive }) => `navbar-link${isActive ? ' active' : ''}`}
               >
-                <span className="nav-icon" aria-hidden="true"><Icon size={15} /></span>
+                <span className="nav-icon" aria-hidden="true">
+                  <Icon size={15} />
+                </span>
                 {label}
               </NavLink>
             </li>
           ))}
         </ul>
 
-        {/* Right section */}
         <div className="navbar-right">
           {user && (
             <div className="navbar-badge">
@@ -60,12 +68,21 @@ export const Navbar = () => {
               )}
             </div>
           )}
-          <button type="button" className="navbar-logout-btn" onClick={handleLogout} id="logout-button">
+
+          <button
+            type="button"
+            className="navbar-logout-btn"
+            onClick={handleLogout}
+            id="logout-button"
+          >
             <LogOut size={14} /> Logout
           </button>
 
-          {/* Hamburger */}
-          <button className="hamburger" onClick={() => setMobileOpen(true)} aria-label="Open navigation">
+          <button
+            className="hamburger"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Open navigation"
+          >
             <span /><span /><span />
           </button>
         </div>
@@ -80,6 +97,7 @@ export const Navbar = () => {
           <div className="navbar-brand-icon">OG</div>
           <div className="navbar-brand-text">Ogero<span>RBAC</span></div>
         </div>
+
         {NAV_ITEMS.map(({ to, label, Icon }) => (
           <NavLink
             key={to}
@@ -91,6 +109,7 @@ export const Navbar = () => {
             {label}
           </NavLink>
         ))}
+
         <div style={{ marginTop: 'auto', paddingTop: 16 }}>
           {user && (
             <div className="flex items-center gap-2" style={{ marginBottom: 12 }}>
@@ -98,6 +117,7 @@ export const Navbar = () => {
               <span className="navbar-username">{user.username}</span>
             </div>
           )}
+
           <button type="button" className="btn btn-secondary w-full" onClick={handleLogout}>
             <LogOut size={14} /> Logout
           </button>
